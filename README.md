@@ -35,3 +35,49 @@ Steps:
 	1. Servers start up
 	2. All clients send initialization
 	3. Each client sends a message, wait for send response, and send again
+
+class Server{
+	int current_primary = 0;
+	receive_request(){
+		if primary:
+			if not_already_excuted:
+				add to queue
+			else:
+				respond with executed
+		else:
+			if primary_alive(current_primary):
+				do_nothing
+			else:
+				re_elect()
+	}
+
+	service_request(){
+		if queue.not_empty():
+			pop_from_queue()
+			if not_already_excuted:
+				then execute
+			else:
+				respond with executed
+	}
+};
+
+class Client{
+	send_request(){
+		while(input()) {
+			message = new_message(seq++)
+			receive_num = current_primary;
+			send_to_primary(message)
+			while (time_out(receive_num)) {
+				receive_num = 0
+				broadcast(message)
+			}
+		}
+	}
+
+	time_out(int receive_num){
+		if receive_num == 0:
+			receive_from_everyone()
+		else:
+			receive_from(receive_num)
+	}
+};
