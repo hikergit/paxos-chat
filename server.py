@@ -15,6 +15,7 @@ def processRequest(conn, addr, seq_num):
     clientSeq = int(header[1])
     messageSize = int(header[2])
     message = conn.recv(messageSize, socket.MSG_WAITALL)
+    print message
     log = str(seq_num) + message
     msg = str(clientSeq) + '$'
     conn.send(msg)
