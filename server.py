@@ -16,12 +16,12 @@ while True:
     header = ""
     while buf != "$":
     	header += buf
-    	buf = recv(1, 'MSG_WAITALL')
+    	buf = s.recv(1, socket.MSG_WAITALL)
     header = header.split('|')
     clientID = int(header[0])
     clientSeq = int(header[1])
     messageSize = int(header[3])
-    message = recv(messageSize, 'MSG_WAITALL')
+    message = s.recv(messageSize, socket.MSG_WAITALL)
     seq_num += 1
     log = str(seq_num) + message
     msg = str(clientSeq) + '$'
