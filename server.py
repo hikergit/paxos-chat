@@ -15,8 +15,8 @@ def processRequest(conn, addr, seq_num):
     clientSeq = int(header[1])
     messageSize = int(header[2])
     message = conn.recv(messageSize, socket.MSG_WAITALL)
-    print message
-    log = str(seq_num) + message
+    log = str(seq_num) + '|' + message
+    print log
     msg = str(clientSeq) + '$'
     conn.send(msg)
     conn.close()
@@ -25,6 +25,7 @@ def start():
   s = socket.socket()
   host = socket.gethostname()
   port = int(sys.argv[1].strip())
+  s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
   s.bind((host, port))
   seq_num = 0
 
