@@ -17,15 +17,14 @@ while(1):
   s = socket.socket()
   s.settimeout(2)
 
-  if s.connect_ex((socket.gethostname(),port)) != 0:
-	print 'Could not connect to port', port
-  print "connected to server"
-
-  #chat = "hello world"
+ #chat = "hello world"
   chat = raw_input("Enter text to chat (or q to quit): ")
   if chat == "q":
     s.close
     exit()
+
+ if s.connect_ex((socket.gethostname(),port)) != 0:
+	print 'Could not connect to port', port
 
   msg = str(clientID) + "|" +  str(seqNum) + "|" + str(chat)
   header = str(clientID) + "|" + str(seqNum) + "|" + str(len(msg)) + "$"
