@@ -11,6 +11,11 @@ Question:
 	6. How are we going to detect crash?
 	7. Do all clients send to the same replica or all replicas
 
+Messages
+    Client to Server
+    1. Client sends header with info about msg size {clientId, clientSeqNum, msgSize, "$"}
+    2. Client sends chat message after header {clientId, clientSeqNum, chatMsg}
+
 
 Client receive:
 	1. Update primary
