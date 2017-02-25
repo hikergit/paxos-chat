@@ -23,7 +23,7 @@ while(1):
     s.close
     exit()
 
- if s.connect_ex((socket.gethostname(),port)) != 0:
+  if s.connect_ex((socket.gethostname(),port)) != 0:
 	print 'Could not connect to port', port
 
   msg = str(clientID) + "|" +  str(seqNum) + "|" + str(chat)
