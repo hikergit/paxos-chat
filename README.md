@@ -1,3 +1,7 @@
+TODO:
+    1. Set up simple client server communication with chat log. Need ClientID, clientSeqNum, and message
+    2. Implement more logic
+
 Question:
 	1. What to do when primary fails before all clients start up
 	2. How does the client connect to the primary

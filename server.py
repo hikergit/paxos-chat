@@ -1,5 +1,6 @@
 import socket
 import sys
+import time
 
 seq_num = 0
 s = socket.socket()
