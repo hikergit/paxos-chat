@@ -2,6 +2,7 @@ import socket
 import sys
 import thread
 import Queue
+import os
   
 requests = Queue.Queue()
 
@@ -9,7 +10,13 @@ def service():
   seq_num = 0
   global requests
   path = "./log/"
-  filename =  path + "serverLog" + sys.argv[1] + ".txt"
+  filename =  path + "serverLog" + sys.argv[2] + ".log"
+  if not os.path.exists(path):
+      try:
+          os.makedirs(path)
+      except OSError as exc: # Guard against race condition
+          if exc.errno != errno.EEXIST:
+              raise
   target = open(filename, 'w')
   target.truncate()
 
@@ -41,7 +48,7 @@ def processRequest(conn, seq_num, target):
 
 def start():
   def usage():
-    print >> sys.stderr, "Usage: server.py <ID> <port>"
+    print >> sys.stderr, "Usage: server.py <port> <ID>"
     sys.exit(150)
 
   if len(sys.argv) < 3:
@@ -49,7 +56,7 @@ def start():
 
   s = socket.socket()
   host = socket.gethostbyname(socket.gethostname())
-  port = int(sys.argv[2].strip())
+  port = int(sys.argv[1].strip())
   s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
   s.bind(('', port))
 
