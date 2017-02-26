@@ -27,9 +27,11 @@ def clinetRun():
     s.settimeout(10)
 
    #chat = "hello world"
-    chat = raw_input("Enter text to chat (or q to quit): ")
-    if chat == "q":
+    try:
+      chat = raw_input("Enter text to chat (or Ctrl-D to quit): ")
+    except EOFError:
       s.close
+      print 'Program terminated'
       exit()
 
     print host
@@ -47,7 +49,6 @@ def clinetRun():
 
     s.sendall(header)
     print 'Sent header'
-   # time.sleep(0.5)
     s.sendall(msg)
     print 'Sent message'
 
