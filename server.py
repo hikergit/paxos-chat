@@ -3,6 +3,7 @@ import sys
 import thread
 import Queue
 import os
+import time
   
 requests = Queue.Queue()
 
@@ -45,6 +46,7 @@ def processRequest(conn, seq_num, target):
   target.write(log + "\n")
   msg = str(clientSeq) + '$'
   seq_num += 1
+  time.sleep(10)
   conn.send(msg)
   conn.close()
   return seq_num
@@ -64,7 +66,7 @@ def start():
   s.bind(('', port))
 
   try:
-      thread.start_new_thread( service,  () )
+    thread.start_new_thread( service,  () )
   except: 
     print 'Cannot start thread'
 
@@ -73,13 +75,12 @@ def start():
 
   try:
     while True:
-        s.listen(5)
-        c, addr = s.accept()
-        print "Receives connection from ", addr
-        requests.put(c)
+      s.listen(5)
+      c, addr = s.accept()
+      print "Receives connection from ", addr
+      requests.put(c)
   except KeyboardInterrupt:
     print "Receiving stopped"
-      
 
 if __name__ == "__main__":
   start()
