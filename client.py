@@ -24,7 +24,7 @@ def clinetRun():
 
   while(1):
     s = socket.socket()
-    s.settimeout(2)
+    s.settimeout(10)
 
    #chat = "hello world"
     chat = raw_input("Enter text to chat (or q to quit): ")
