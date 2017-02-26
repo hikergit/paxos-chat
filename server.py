@@ -20,11 +20,14 @@ def service():
   target = open(filename, 'w')
   target.truncate()
 
-  while(1):
-    conn = requests.get()
-    seq_num = processRequest(conn, seq_num, target)
-
-  target.close()
+  try:
+    while(1):
+      conn = requests.get()
+      seq_num = processRequest(conn, seq_num, target)
+  except KeyboardInterrupt:
+    print "Service stopped"
+    conn.close()
+    target.close()
 
 def processRequest(conn, seq_num, target):
   buf = ""
@@ -67,12 +70,15 @@ def start():
 
   print "Server running on " + host + ":" + str(port)
   global requests
-  while True:
-      s.listen(5)
-      c, addr = s.accept()
-      print "Receives connection from ", addr
-      requests.put(c)
-       
+
+  try:
+    while True:
+        s.listen(5)
+        c, addr = s.accept()
+        print "Receives connection from ", addr
+        requests.put(c)
+  except KeyboardInterrupt:
+    print "Receiving stopped"
       
 
 if __name__ == "__main__":
