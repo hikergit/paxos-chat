@@ -33,7 +33,7 @@ def clinetRun():
       exit()
 
     if s.connect_ex((host,port)) != 0:
-  	print 'Could not connect to port', port
+      print 'Could not connect to port', port
 
     msg = str(clientID) + "|" +  str(seqNum) + "|" + str(chat)
     header = str(clientID) + "|" + str(seqNum) + "|" + str(len(msg)) + "$"
@@ -50,8 +50,8 @@ def clinetRun():
     buf = ""
     resp = ""
     while buf != "$":
-        resp += buf
-        buf = s.recv(1, socket.MSG_WAITALL)
+      resp += buf
+      buf = s.recv(1, socket.MSG_WAITALL)
 
     print resp
     seqNum += 1

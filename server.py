@@ -44,7 +44,7 @@ def start():
   host = socket.gethostbyname(socket.gethostname())
   port = int(sys.argv[1].strip())
   s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-  s.bind((host, port))
+  s.bind(('', port))
 
   try:
       thread.start_new_thread( service,  () )
@@ -56,7 +56,7 @@ def start():
   while True:
       s.listen(5)
       c, addr = s.accept()
-
+      print "Receives connection from ", addr
       requests.put(c)
        
       
