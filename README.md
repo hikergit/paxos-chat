@@ -19,15 +19,11 @@ Messages
 
 
 Client receive:
-	1. Update primary
-	2. Initialization
-	3. Update message
-	4. Send response
+	1. Send response
 
 Client send:
-    1. Initialization step
-    2. New message
-    3. Termination
+    1. Chat message
+    2. Broadcast message
 
 Server send:
 	1. Update primary

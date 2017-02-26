@@ -4,24 +4,68 @@ import time
 
 #Arguments to Client.
 #1. Port id to connect to first replica of server
-#2. ClientID number. Should be unique
+#2. F - Number of tolerated failures
+#3. ClientID number. Should be unique
 
-def clinetRun():
+def broadcast_thread(s, header, msg, timeout):
+  try:
+    s.connect((host,port))
+  except:
+    print sys.exc_info()[0]
+    return
+  
+  try:
+    s.sendall(header)
+    s.sendall(msg)
+  except:
+    print "Not able to send broadcast message for some reason"
+
+  s.settimeout(timeout)
+  try:
+    buf = ""
+    resp = ""
+    while buf != "$":
+      resp += buf
+      buf = s.recv(1, socket.MSG_WAITALL)
+
+  except:
+   'Broadcast never got back'
+
+
+
+
+def broadcast(f, port, header, msg):
+  
+  p = port
+  timeout = 4
+  while p < port+f:
+    s = socket.socket()
+    host = socket.gethostname()
+    
+    try:
+        thread.start_new_thread (broadcast_thread, (s, header, msg, timeout))
+    except:
+      print "Can't create thread"
+
+    p += 1
+
+def clientRun():
   def usage():
-    print >> sys.stderr, "Usage: client.py <port> <clientID> [serverIP]"
+    print >> sys.stderr, "Usage: client.py <port> <clientID> <f> [serverIP]"
     sys.exit(150)
 
-  if len(sys.argv) < 3:
+  if len(sys.argv) < 4:
     usage()
 
-  port = int(sys.argv[1].strip())
+  startPort = int(sys.argv[1].strip())
   clientID = int(sys.argv[2].strip())
+  f = int(sys.argv[3].strip())
   host = socket.gethostname()
-  if len(sys.argv) > 3:
-    host = socket.gethostbyname(sys.argv[3].strip())
+  if len(sys.argv) > 4:
+    host = socket.gethostbyname(sys.argv[4].strip())
   seqNum = 0
 
-
+  port = startPort
   while(1):
     s = socket.socket()
     s.settimeout(10)
@@ -35,11 +79,21 @@ def clinetRun():
       exit()
 
     print host
-    s.connect((host,port))
-    '''
-    if s.connect_ex((host,port)) != 0:
-      print 'Could not connect to port', port
-    '''
+
+    try:
+      s.connect((host,port))
+    except socket.error:
+      print 'Primary not reachable, now broadcasting'
+      broadcast(f,startPort) 
+    except socket.timeout:
+      print 'Primary timed out, now broadcasting'
+      broadcast(f,startPort) 
+    except: 
+      print sys.exc_info()[0]
+      print 'Did not expect this exception. Exiting'
+      exit()
+
+
     
     msg = str(clientID) + "|" +  str(seqNum) + "|" + str(chat)
     header = str(clientID) + "|" + str(seqNum) + "|" + str(len(msg)) + "$"
@@ -52,11 +106,16 @@ def clinetRun():
     s.sendall(msg)
     print 'Sent message'
 
-    buf = ""
-    resp = ""
-    while buf != "$":
-      resp += buf
-      buf = s.recv(1, socket.MSG_WAITALL)
+    try:
+      buf = ""
+      resp = ""
+      while buf != "$":
+        resp += buf
+        buf = s.recv(1, socket.MSG_WAITALL)
+
+    except Exception:
+      print 'Timed out now broadcasting'
+      broadcast(f,startPort, header, msg)
 
     print resp
     seqNum += 1
@@ -64,4 +123,4 @@ def clinetRun():
 
 
 if __name__ == '__main__':
-  clinetRun()
+  clientRun()
