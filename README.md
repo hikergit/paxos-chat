@@ -1,4 +1,5 @@
 TODO:
+    0. Can not connect to CAEN computer, connection refused
     1. Set up simple client server communication with chat log. Need ClientID, clientSeqNum, and message
     2. Implement more logic
 
