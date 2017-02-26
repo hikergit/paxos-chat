@@ -24,7 +24,7 @@ def clinetRun():
 
   while(1):
     s = socket.socket()
-    s.settimeout(10)
+    s.settimeout(5)
 
    #chat = "hello world"
     try:

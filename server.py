@@ -8,12 +8,18 @@ requests = Queue.Queue()
 def service():
   seq_num = 0
   global requests
+  path = "./log/"
+  filename =  path + "serverLog" + sys.argv[1] + ".txt"
+  target = open(filename, 'w')
+  target.truncate()
 
   while(1):
     conn = requests.get()
-    seq_num = processRequest(conn, seq_num)
+    seq_num = processRequest(conn, seq_num, target)
 
-def processRequest(conn, seq_num):
+  target.close()
+
+def processRequest(conn, seq_num, target):
   buf = ""
   header = ""
   while buf != "$":
@@ -26,6 +32,7 @@ def processRequest(conn, seq_num):
   message = conn.recv(messageSize, socket.MSG_WAITALL)
   log = str(seq_num) + '|' + message
   print log
+  target.write(log + "\n")
   msg = str(clientSeq) + '$'
   seq_num += 1
   conn.send(msg)
@@ -34,15 +41,15 @@ def processRequest(conn, seq_num):
 
 def start():
   def usage():
-    print >> sys.stderr, "Usage: server.py <port>"
+    print >> sys.stderr, "Usage: server.py <ID> <port>"
     sys.exit(150)
 
-  if len(sys.argv) < 2:
+  if len(sys.argv) < 3:
     usage()
 
   s = socket.socket()
   host = socket.gethostbyname(socket.gethostname())
-  port = int(sys.argv[1].strip())
+  port = int(sys.argv[2].strip())
   s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
   s.bind(('', port))
 
