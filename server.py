@@ -46,7 +46,7 @@ def processRequest(conn, seq_num, target):
   target.write(log + "\n")
   msg = str(clientSeq) + '$'
   seq_num += 1
-  time.sleep(10)
+  #time.sleep(10)
   conn.send(msg)
   conn.close()
   return seq_num
