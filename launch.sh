@@ -1,17 +1,22 @@
 #!/bin/bash
 
 #Arguments
-#1. F - number of tolerated failures. Will bring up n = 2f+1 
+#1. N - number of servers
 #2. Starting port number for replicas. Increments by one for each replica
 
 f="$1"
-counter=0
+id=0
 port="$2"
 server="server.py"
+OUT='servers.txt'
+rm $OUT
 
-while [ $counter -lt $f ]; 
+while [ $id -lt $f ]; 
 do
-  python $server $port &
+  python $server $port $id &
+  echo $HOSTNAME $port >> $OUT
+  
   let port=port+1
-  let counter=counter+1
+  let id=id+1
+
 done
