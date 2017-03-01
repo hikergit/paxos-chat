@@ -25,7 +25,7 @@ def service():
     while(1):
       conn = requests.get()
       seq_num = processRequest(conn, seq_num, target)
-  except KeyboardInterrupt:
+  finally:
     print "Service stopped"
     conn.close()
     target.close()
@@ -46,7 +46,6 @@ def processRequest(conn, seq_num, target):
   target.write(log + "\n")
   msg = str(clientSeq) + '$'
   seq_num += 1
-  time.sleep(10)
   conn.send(msg)
   conn.close()
   return seq_num
@@ -79,7 +78,7 @@ def start():
       c, addr = s.accept()
       print "Receives connection from ", addr
       requests.put(c)
-  except KeyboardInterrupt:
+  finally:
     print "Receiving stopped"
 
 if __name__ == "__main__":
