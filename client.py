@@ -6,12 +6,11 @@ import thread
 from threading import Thread
 
 #Arguments to Client.
-# <port> <clientID> <f> [serverIP]
-#1. Port id to connect to first replica of server
-#2. ClientID number. Should be unique
-#3. F - Number of tolerated failures
-#4. optional - server ip
+# <clientID> [serverIP]
+#1. ClientID number. Should be unique
+#2. optional - server ip
 
+CONFIG = 'servers.txt'
 responses = Queue.Queue()
 seq_num = 0
 server_host_port = []
@@ -79,28 +78,29 @@ def broadcast(header, msg):
 
 def clientRun():
   def usage():
-    print >> sys.stderr, "Usage: client.py <port> <clientID> <f> [serverIP]"
+    print >> sys.stderr, "Usage: client.py <clientID> [serverIP]"
     sys.exit(150)
 
-  if len(sys.argv) < 4:
+  if len(sys.argv) < 2:
     usage()
 
-  startPort = int(sys.argv[1].strip())
-  clientID = int(sys.argv[2].strip())
-  f = int(sys.argv[3].strip())
+  clientID = int(sys.argv[1].strip())
   host = socket.gethostname()
-  if len(sys.argv) > 4:
-    host = socket.gethostbyname(sys.argv[4].strip())
+  if len(sys.argv) > 2:
+    host = socket.gethostbyname(sys.argv[2].strip())
 
   global seq_num
   seq_num = 0
 
-  port = startPort
-
   #TODO: read all server's host and port from file
   global server_host_port
-  for i in range(f):
-    server_host_port.append((host, port+i))
+  file = open(CONFIG,'r')
+
+  for line in file:
+    host,port = line.strip().split(' ')
+    port = int(port)
+    server_host_port.append((host,port))
+
   global primary
   primary = server_host_port[0]
   while(1):
@@ -132,6 +132,7 @@ def clientRun():
           resp += buf
           buf = s.recv(1)
         print resp
+        print 'Host,Port', primary
       # now resp == seq_num  
       seq_num += 1
     except socket.error:
