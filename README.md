@@ -18,6 +18,13 @@ Messages
     1. Client sends header with info about msg size {clientId, clientSeqNum, msgSize, "$"}
     2. Client sends chat message after header {clientId, clientSeqNum, chatMsg}
 
+Header Message
+    1. C | id | seq num | $  message size   =>      Client Send Header
+   
+    2. L | viewNum | $ =>  I am Leader message.          Proposer sends to acceptors. ONLY NEED HEADER MESSAGE here
+    3. F | viewNum | value | prevView# | $ => You are leader message. Acceptor sends to proposer
+    4. P | viewNum | value | $ => Leader proposes value. Proposer sends to majority
+    5. A | viewNum | value | $ => Follower accepts value. Acceptor sends to learner
 
 Client receive:
 	1. Send response
