@@ -19,7 +19,7 @@ def receive():
     if I'm not the primary
       start view_change
   '''
-  
+
   return
 
 def view_change():
@@ -98,11 +98,9 @@ def start():
   if len(sys.argv) < 3:
     usage()
 
-  s = socket.socket()
+  
   host = socket.gethostbyname(socket.gethostname())
   port = int(sys.argv[1].strip())
-  s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-  s.bind(('', port))
 
   try:
     t = Thread(target=service, args=())
@@ -114,6 +112,9 @@ def start():
   global requests
 
   try:
+    s = socket.socket()
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(('', port))
     while True:
       s.listen(5)
       c, addr = s.accept()
