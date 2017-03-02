@@ -11,6 +11,7 @@ Question:
 	5. Will there be multiple proposers in our project
 	6. How are we going to detect crash?
 	7. Do all clients send to the same replica or all replicas
+	8. after getting followers, do we broadcast to everyone or just followers
 
 Messages
     Client to Server

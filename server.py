@@ -4,8 +4,47 @@ import thread
 import Queue
 import os
 import time
+from threading import Thread, Lock
   
 requests = Queue.Queue()
+viewNum = 0
+viewLock = Lock()
+
+def receive():
+  '''
+  keep accepting connection
+  if it's from client
+    if I'm primary 
+      service command
+    if I'm not the primary
+      start view_change
+  '''
+  
+  return
+
+def view_change():
+  '''
+  keep client requests in the client_req queue
+  keep accepting until we see a message from server
+  '''
+  return
+
+
+def learner():
+  '''
+  view#
+  '''
+  return
+
+def proposer():
+  '''
+  proposing I'm your leader and values
+  '''
+  return
+
+def acceptor():
+  return
+
 
 def service():
   seq_num = 0
@@ -66,10 +105,11 @@ def start():
   s.bind(('', port))
 
   try:
-    thread.start_new_thread( service,  () )
+    t = Thread(target=service, args=())
   except: 
     print 'Cannot start thread'
 
+  t.start()
   print "Server running on " + host + ":" + str(port)
   global requests
 
