@@ -10,7 +10,7 @@ from threading import Thread
 #1. ClientID number. Should be unique
 #2. optional - server ip
 
-CONFIG = 'servers.txt'
+CONFIG = 'config.txt'
 responses = Queue.Queue()
 seq_num = 0
 server_host_port = []

@@ -8,8 +8,8 @@ f="$1"
 id=0
 port="$2"
 server="server.py"
-OUT='servers.txt'
-rm $OUT
+OUT='config.txt'
+if [ $( ls $OUT ) ]; then rm $OUT; fi
 
 while [ $id -lt $f ]; 
 do
