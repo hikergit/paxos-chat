@@ -5,7 +5,8 @@ import Queue
 import os
 import time
 from threading import Thread, Lock
-  
+
+CONFIG = 'config.txt'
 requests = Queue.Queue()
 viewNum = 0
 viewLock = Lock()
@@ -101,6 +102,15 @@ def start():
   
   host = socket.gethostbyname(socket.gethostname())
   port = int(sys.argv[1].strip())
+
+  #TODO: read all server's host and port from file
+  global server_host_port
+  file = open(CONFIG,'r')
+
+  for line in file:
+    host,port = line.strip().split(' ')
+    port = int(port)
+    server_host_port.append((host,port))
 
   try:
     t = Thread(target=service, args=())
