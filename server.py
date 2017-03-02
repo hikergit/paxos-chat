@@ -10,6 +10,7 @@ CONFIG = 'config.txt'
 requests = Queue.Queue()
 viewNum = 0
 viewLock = Lock()
+server_host_port = []
 
 def receive():
   '''
