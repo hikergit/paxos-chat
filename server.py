@@ -11,6 +11,7 @@ requests = Queue.Queue()
 viewNum = 0
 viewLock = Lock()
 server_host_port = []
+chatLog = [] #[view#, message(clientId, clientSEQ, message)]
 
 def receive():
   '''
@@ -21,8 +22,23 @@ def receive():
     if I'm not the primary
       start view_change
   '''
-
-  return
+  try:
+    host = socket.gethostbyname(socket.gethostname())
+    port = int(sys.argv[1].strip())
+    print "Server running on " + host + ":" + str(port)
+    global requests
+    s = socket.socket()
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(('', port))
+    while True:
+      s.listen(5)
+      c, addr = s.accept()
+      print "Receives connection from ", addr
+      requests.put(c)
+  except:
+    print "Receiving stopped normally..."
+  finally:
+    s.close()
 
 def view_change():
   '''
@@ -66,7 +82,7 @@ def service():
     while(1):
       conn = requests.get()
       seq_num = processRequest(conn, seq_num, target)
-  except KeyboardInterrupt:
+  except:
     print "Service stopped normally..."
   finally:
     conn.close()
@@ -100,10 +116,6 @@ def start():
   if len(sys.argv) < 3:
     usage()
 
-  
-  host = socket.gethostbyname(socket.gethostname())
-  port = int(sys.argv[1].strip())
-
   #TODO: read all server's host and port from file
   global server_host_port
   file = open(CONFIG,'r')
@@ -113,28 +125,16 @@ def start():
     port = int(port)
     server_host_port.append((host,port))
 
-  try:
-    t = Thread(target=service, args=())
-  except: 
-    print 'Cannot start thread'
+  service_thread = Thread(target=service, args=())
+  service_thread.start()
 
-  t.start()
-  print "Server running on " + host + ":" + str(port)
-  global requests
+  receive_thread = Thread(target=receive, args=())
+  receive_thread.start()
 
-  try:
-    s = socket.socket()
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(('', port))
-    while True:
-      s.listen(5)
-      c, addr = s.accept()
-      print "Receives connection from ", addr
-      requests.put(c)
-  except KeyboardInterrupt:
-    print "Receiving stopped normally..."
-  finally:
-    s.close()
+  service_thread.join()
+  receive_thread.join()
+
+
 
 if __name__ == "__main__":
   start()
