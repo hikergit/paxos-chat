@@ -110,8 +110,8 @@ def clientRun():
       print 'Program terminated'
       exit()
 
-    msg = "C|" + str(clientID) + "|" +  str(seq_num) + "|" + str(chat)
-    header = str(clientID) + "|" + str(seq_num) + "|" + str(len(msg)) + "$"
+    msg = str(clientID) + "|" +  str(seq_num) + "|" + str(chat)
+    header = "C|" + str(len(msg)) + "$"
 
     #Attempt to connect to primary. If fails/timeout, broadcast to all replicas
     try:

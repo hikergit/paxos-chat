@@ -13,6 +13,8 @@ viewNum = 0
 viewLock = Lock()
 server_host_port = []
 chatLog = [] #[view#, message(clientId, clientSEQ, message)]
+learning = {}
+
 
 def receive():
   '''
@@ -49,11 +51,35 @@ def view_change():
   '''
   return
 
-
-def learner():
+#Receives message. Needs slot Y, view Z, and value X.  
+def learner(message):
   '''
   view#
   '''
+  try:
+    message = message.split('|')
+    view = int(message[0])
+    seqNum = int(message[1])
+    chat = message[2]
+  except: 
+    print "Message is ill formed in learner. Message here ", message
+    return
+
+  #If slot Y not in dict, add and set counter for view Z to 1
+  if seqNum not in learning:
+    learning[seqNum] = {view: 1}
+    return
+  
+  slot = learning[seqNum]
+
+  #If view Z is in slot Y, increment counter. Else, add view Z to slot Y with counter at 1
+  if view in slot:
+    slot[view] += 1
+  else:
+    slot[view] = 1
+
+  #TODO: Check when the counter hits f+1 and deliver the message
+  
   return
 
 def proposer():
@@ -62,7 +88,35 @@ def proposer():
   '''
   return
 
-def acceptor():
+# This should only receive PREPARE messages and ACCEPT messages
+# PREPARE: Accept the new leader or reject based on viewNum
+# ACCEPT: Commit the value or reject based on if this leader is still your leader
+def acceptor(message, op):
+  try:
+    message = message.split('|')
+    view = int(message[0])
+    seqNum = int(message[1])
+    chat = message[2]
+  except: 
+    print "Message is ill formed in learner. Message here ", message
+    return
+
+  if op is 'L':
+    if view >= viewNum:
+      #Send you are leader
+      msg = str(viewNum) + str(view) + 
+      view = viewNum
+
+  else:
+    #If we are still following this leader
+    if view is viewNum:
+      #Broadcast to all replicas learned message
+      msg = str(view) + '|' +  str(seqNum) + '|' + chat
+      header = 'A|' + str(len(msg)) + "$"
+    #else:
+      #Don't commit value. Reject leader TODO or just ignore??
+
+  
   return
 
 
@@ -98,6 +152,28 @@ def processRequest(conn, seq_num, target):
       header += buf
       buf = conn.recv(1, socket.MSG_WAITALL)
   header = header.split('|')
+  opcode = header[0]
+  messageSize = int(header[1])
+  message = conn.recv(messageSize, socket.MSG_WAITALL)
+ 
+  if opcode is "C":
+
+  elif opcode is "L":
+    acceptor(message, 'L')
+  
+  elif opcode is "F":
+
+  elif opcode is "P":
+    acceptor(message, 'P')
+
+  elif opcode is "A":
+    learner(message)
+
+  else:
+    print "Unrecognized opcode ", opcode, message,
+    exit()
+
+  '''
   clientID = int(header[0])
   clientSeq = int(header[1])
   messageSize = int(header[2])
@@ -111,6 +187,7 @@ def processRequest(conn, seq_num, target):
   conn.send(msg)
   conn.close()
   return seq_num
+  '''
 
 def start():
   def usage():

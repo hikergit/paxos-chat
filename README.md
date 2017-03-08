@@ -2,6 +2,7 @@ TODO:
     0. Can not connect to CAEN computer, connection refused
     1. Set up simple client server communication with chat log. Need ClientID, clientSeqNum, and message
     2. Implement more logic
+    3. Fix client headers. Do we need anything more than the message size in the header??
 
 Question:
 	1. What to do when primary fails before all clients start up
@@ -19,13 +20,30 @@ Messages
     2. Client sends chat message after header {clientId, clientSeqNum, chatMsg}
 
 
-Header Message - old format
+Header Message - everything in header
     1. C | clientID | clientSeq_num | messageSize $ Message =>      Client Send Header
    
     2. L | viewNum $ =>  I am Leader message.          Proposer sends to acceptors. ONLY NEED HEADER MESSAGE here
     3. F | viewNum | prevView# | prevMessageSize $ prevMessage => You are leader message. Acceptor sends to proposer
     4. P | viewNum | valueSize $ Value => Leader proposes value. Proposer sends to majority
     5. A | viewNum | valueSize $ Value => Follower accepts value. Acceptor sends to learner
+
+Header Message - values in body
+    1. C |  message size $   =>      Client Send Header
+        clientid | clientSeqNum | chatMessage
+   
+    2. L | messageSize | $ =>  I am Leader message.          Proposer sends to acceptors. ONLY NEED HEADER MESSAGE here
+        viewNum | n/a | n/a
+
+    3. F | messageSize $ => You are leader message. Acceptor sends to proposer
+        viewNum | prevView# | message
+
+    4. P | messageSize $ => Leader proposes value. Proposer sends to majority
+        viewNum | seqNum | message
+        
+    5. A | messageSize $ => Follower accepts value. Acceptor sends to learner
+        viewNum | seqNum | message
+>>>>>>> 1b0cc4f89ef5dda554665af85e23cbf7c3c5a82e
 
 Client receive:
 	1. Send response
