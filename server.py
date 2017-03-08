@@ -7,7 +7,8 @@ import time
 from threading import Thread, Lock
 
 CONFIG = 'config.txt'
-requests = Queue.Queue()
+messageQ = Queue.Queue()
+
 viewNum = 0
 viewLock = Lock()
 server_host_port = []
@@ -26,7 +27,7 @@ def receive():
     host = socket.gethostbyname(socket.gethostname())
     port = int(sys.argv[1].strip())
     print "Server running on " + host + ":" + str(port)
-    global requests
+    global messageQ
     s = socket.socket()
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(('', port))
@@ -34,11 +35,12 @@ def receive():
       s.listen(5)
       c, addr = s.accept()
       print "Receives connection from ", addr
-      requests.put(c)
+      messageQ.put(c)
   except:
     print "Receiving stopped normally..."
   finally:
     s.close()
+
 
 def view_change():
   '''
@@ -89,6 +91,7 @@ def service():
     target.close()
 
 def processRequest(conn, seq_num, target):
+  # keep a local queue
   buf = ""
   header = ""
   while buf != "$":
@@ -99,6 +102,7 @@ def processRequest(conn, seq_num, target):
   clientSeq = int(header[1])
   messageSize = int(header[2])
   message = conn.recv(messageSize, socket.MSG_WAITALL)
+  # check the message type
   log = str(seq_num) + '|' + message
   print log
   target.write(log + "\n")
@@ -124,6 +128,7 @@ def start():
     host,port = line.strip().split(' ')
     port = int(port)
     server_host_port.append((host,port))
+  f.close()
 
   service_thread = Thread(target=service, args=())
   service_thread.start()

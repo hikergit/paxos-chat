@@ -52,10 +52,9 @@ def broadcast(header, msg):
       thread_list.append(t)
       # except:
         # print "Can't create thread"
-      
 
-      for thread_i in thread_list:
-        thread_i.join()
+    for thread_i in thread_list:
+      thread_i.join()
     # join()
     # time.sleep(timeout)
     if responses.empty() :
@@ -111,7 +110,7 @@ def clientRun():
       print 'Program terminated'
       exit()
 
-    msg = str(clientID) + "|" +  str(seq_num) + "|" + str(chat)
+    msg = "C|" + str(clientID) + "|" +  str(seq_num) + "|" + str(chat)
     header = str(clientID) + "|" + str(seq_num) + "|" + str(len(msg)) + "$"
 
     #Attempt to connect to primary. If fails/timeout, broadcast to all replicas
