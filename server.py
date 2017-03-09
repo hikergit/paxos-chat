@@ -17,6 +17,8 @@ learning = {}
 serverID = 0
 numOfServers = 0
 imPrimary = False
+nextSeqNum = 0
+followers = []
 
 
 def receive():
@@ -36,11 +38,15 @@ def receive():
     s = socket.socket()
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(('', port))
+    global viewNum
+    global viewLock
     while True:
       s.listen(5)
       c, addr = s.accept()
       print "Receives connection from ", addr
-      messageQ.put(c)
+      viewLock.acquire()
+      messageQ.put((c, viewNum))
+      viewLock.release()
   except:
     print "Receiving stopped normally..."
   finally:
@@ -58,7 +64,16 @@ def broadcast(header, msg):
       s.sendall(msg)
     except:
       print 'Could not connect to ', host_port
-      return
+
+def proposeValue(clientMessage):
+  global viewNum
+  global viewLock
+  global nextSeqNum
+  message = str(viewNum) + '|' + str(nextSeqNum) + '|' + clientMessage
+  nextSeqNum += 1
+  header  = "P|" + len(message) + '$'
+  broadcast(header, message)
+
 
 def view_change():
   '''
@@ -117,15 +132,21 @@ def acceptor(message, op):
     print "Message is ill formed in learner. Message here ", message
     return
 
+  global viewNum
+  global viewLock
+  viewLock.acquire()
+  currentView = viewNum
+  viewLock.release()
+
   if op is 'L':
-    if view >= viewNum:
+    if view >= currentView:
       #Send you are leader
-      msg = str(viewNum) + str(view) + 
-      view = viewNum
+      msg = str(currentView) + str(view) + 
+      view = currentView
 
   else:
     #If we are still following this leader
-    if view is viewNum:
+    if view is currentView:
       #Broadcast to all replicas learned message
       msg = str(view) + '|' +  str(seqNum) + '|' + chat
       header = 'A|' + str(len(msg)) + "$"
@@ -136,7 +157,7 @@ def acceptor(message, op):
 
 def service():
   seq_num = 0
-  global requests
+  global messageQ
   path = "./log/"
   filename =  path + "serverLog" + sys.argv[2] + ".log"
   if not os.path.exists(path):
@@ -150,18 +171,19 @@ def service():
 
   try:
     while(1):
-      conn = requests.get()
-      seq_num = processRequest(conn, seq_num, target)
+      msg = messageQ.get() # this is a tuple of (socket, requestViewNum)
+      processRequest(msg, target)
   except:
     print "Service stopped normally..."
   finally:
-    conn.close()
+    msg[0].close()
     target.close()
 
-def processRequest(conn, seq_num, target):
+def processRequest(msg, target):
   # keep a local queue
   buf = ""
   header = ""
+  conn, requestViewNum = msg
   while buf != "$":
       header += buf
       buf = conn.recv(1, socket.MSG_WAITALL)
@@ -171,6 +193,16 @@ def processRequest(conn, seq_num, target):
   message = conn.recv(messageSize, socket.MSG_WAITALL)
  
   if opcode is "C":
+    if imPrimary:
+      proposeValue(message)
+    else:
+      global viewNum
+      global viewLock
+      viewLock.acquire()
+      currentView = viewNum
+      viewLock.release()
+      if requestViewNum is currentView:
+        view_change()
 
   elif opcode is "L":
     acceptor(message, 'L')
@@ -220,6 +252,7 @@ def start():
   for line in file:
     host,port = line.strip().split(' ')
     port = int(port)
+    followers.append(numOfServers) # append serverID
     server_host_port.append((host,port))
     numOfServers += 1
   f.close()
@@ -228,7 +261,11 @@ def start():
   serverID = int(sys.argv[2])
 
   global imPrimary
+  global viewNum
+  global viewLock
+  viewLock.acquire()
   imPrimary = (viewNum % numOfServers == serverID)
+  viewLock.release()
 
   service_thread = Thread(target=service, args=())
   service_thread.start()
