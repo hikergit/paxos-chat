@@ -69,7 +69,9 @@ def proposeValue(clientMessage):
   global viewNum
   global viewLock
   global nextSeqNum
+  viewLock.acquire()
   message = str(viewNum) + '|' + str(nextSeqNum) + '|' + clientMessage
+  viewLock.release()
   nextSeqNum += 1
   header  = "P|" + len(message) + '$'
   broadcast(header, message)
@@ -80,6 +82,10 @@ def view_change():
   keep client requests in the client_req queue
   keep accepting until we see a message from server
   '''
+  global viewNum
+  global viewLock
+  viewLock.acquire()
+  viewLock.release()
   return
 
 #Receives message. Needs slot Y, view Z, and value X.  
@@ -117,6 +123,7 @@ def proposer():
   '''
   proposing I'm your leader and values
   '''
+
   return
 
 # This should only receive PREPARE messages and ACCEPT messages
