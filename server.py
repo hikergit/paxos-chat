@@ -44,7 +44,7 @@ def receive():
     while True:
       s.listen(5)
       c, addr = s.accept()
-      print "Receives connection from ", addr
+      print "Server ", serverID, " Receives connection from ", addr
       viewLock.acquire()
       messageQ.put((c, viewNum))
       viewLock.release()
@@ -278,6 +278,7 @@ def processRequest(msg, target):
     conn.close()
   
   elif opcode is "F":
+    print "Got a follow message"
 
   elif opcode is "P":
     acceptor(message, 'P')
@@ -325,7 +326,6 @@ def start():
     followers.append(numOfServers) # append serverID
     server_host_port.append((host,port))
     numOfServers += 1
-  f.close()
 
   global serverID
   serverID = int(sys.argv[2])
