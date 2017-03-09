@@ -20,7 +20,7 @@ numOfServers = 0
 imPrimary = False
 nextSeqNum = 0
 followers = []
-
+clientMap = {}
 
 def receive():
   '''
@@ -44,16 +44,19 @@ def receive():
     while True:
       s.listen(5)
       c, addr = s.accept()
-      print "Receives connection from ", addr
+      #print "Server ", serverID, " Receives connection from ", addr
+      print "Adding to queue", c.getpeername()
       viewLock.acquire()
       messageQ.put((c, viewNum))
       viewLock.release()
-  except:
+  except KeyboardInterrupt:
     print "Receiving stopped normally..."
+    print sys.exc_info()[0]
   finally:
     s.close()
 
 def broadcast(header, msg):
+  global server_host_port
   for host_port in server_host_port:
     sendMsg(header, msg, host_port)
 
@@ -67,23 +70,46 @@ def sendMsg(header, msg, host_port):
     #Send message to replica. If fails, exit
     s.sendall(header)
     s.sendall(msg)
+    print "Sent message to port", host_port[1], "from port", s.getsockname()
+
   except:
+    print sys.exc_info()[0]
     print 'Could not connect to ', host_port
 
   s.close()
  
 
-def proposeValue(clientMessage):
+def proposeValue(clientMessage, conn):
   global viewNum
   global viewLock
   global nextSeqNum
-  viewLock.acquire()
+  global clientMap
+
+  parse = clientMessage.split('|')
+  clientId = int(parse[0])
+  clientSeq = int(parse[1])
+
+  #Check the clientID. If we have already decided this value, respond to the client
+  if clientId in clientMap:
+    if clientMap[clientId][0] is clientSeq:
+      conn.send(str(clientSeq) + "$")
+      conn.close()
+      return
+    elif clientMap[clientId][0] > clientSeq:
+      #Ignore
+      return
+
   message = str(viewNum) + '|' + str(nextSeqNum) + '|' + clientMessage
   viewLock.release()
   nextSeqNum += 1
   header  = "P|" + str(len(message)) + '$'
   broadcast(header, message)
-
+ 
+  #Save socket
+  if clientId in clientMap:
+    clientMap[clientId][1] = conn
+  else:
+    clientMap[clientId] = [-1, conn]
 
 def view_change():
   '''
@@ -101,30 +127,60 @@ def learner(message):
   '''
   view#
   '''
+  global learning
+  global numOfServers
+  global imPrimary
+  global clientMap
+
   try:
-    message = message.split('|')
-    view = int(message[0])
-    seqNum = int(message[1])
-    chat = message[2]
+    trim = message.split('|')
+    view = int(trim[0])
+    seqNum = int(trim[1])
+    cut = len(trim[0]) + 1 + len(trim[1]) + 1
+    chat = message[cut:]
+    print 'Chat', chat
   except: 
+    print sys.exc_info()[0]
     print "Message is ill formed in learner. Message here ", message
     return
 
   #If slot Y not in dict, add and set counter for view Z to 1
   if seqNum not in learning:
     learning[seqNum] = {view: 1}
-    return
-  
-  slot = learning[seqNum]
-
-  #If view Z is in slot Y, increment counter. Else, add view Z to slot Y with counter at 1
-  if view in slot:
-    slot[view] += 1
+ 
   else:
-    slot[view] = 1
+    slot = learning[seqNum]
 
-  #TODO: Check when the counter hits f+1 and deliver the message
+    #If view Z is in slot Y, increment counter. Else, add view Z to slot Y with counter at 1
+    if view in slot:
+      slot[view] += 1
+    else:
+      slot[view] = 1
 
+  #Check when the counter hits f+1 and deliver the message
+  if learning[seqNum][view] == (numOfServers / 2):
+    writeLog(seqNum, chat, view, 'L')
+    print chatLog 
+   
+    chat = chat.split('|')
+    clientId = int(chat[0])
+    clientSeqNum = int(chat[1])
+
+    if clientId in clientMap:
+      clientMap[clientId][0] = clientSeqNum
+    else:
+      clientMap[clientId] = [clientSeqNum, socket.socket()]
+
+    if imPrimary:
+      #TODO Send back to client
+      try:
+        msg = str(clientSeqNum) + "$"
+        clientMap[clientId][1].sendall(msg)
+        clientMap[clientId][1].close()
+        print 'Sent back to client'
+      except:
+        print sys.exc_info()[0]
+        print "Didn't send back to the client. Message failed"
   
   return
 
@@ -143,7 +199,7 @@ def writeLog(seqNum, msg, view, state):
   while len(chatLog) <= seqNum:
     chatLog.append(('',view, ''))
     
-  chatLog[seqNum] = (msg,state)
+  chatLog[seqNum] = (msg,view,state)
 
 
 # This should only receive PREPARE messages and ACCEPT messages
@@ -151,12 +207,14 @@ def writeLog(seqNum, msg, view, state):
 # ACCEPT: Commit the value or reject based on if this leader is still your leader
 def acceptor(message, op):
   try:
-    message = message.split('|')
-    view = int(message[0])
-    seqNum = int(message[1])
-    chat = message[2]
+    trim = message.split('|')
+    view = int(trim[0])
+    seqNum = int(trim[1])
+    cut = len(trim[0]) + 1 + len(trim[1]) + 1
+    chat = message[cut:]
   except: 
     print "Message is ill formed in learner. Message here ", message
+    print sys.exc_info()[0]
     return
 
   global viewNum
@@ -180,6 +238,8 @@ def acceptor(message, op):
       msg = str(view) + '|' +  str(seqNum) + '|' + chat
       header = 'A|' + str(len(msg)) + "$"
       writeLog(seqNum, chat, view, 'A')
+      print "Broadcasting to learners"
+      print "Message is ", msg
       broadcast(header, msg)
   
   viewLock.release()
@@ -204,7 +264,7 @@ def service():
     while(1):
       msg = messageQ.get() # this is a tuple of (socket, requestViewNum)
       processRequest(msg, target)
-  except:
+  except KeyboardInterrupt:
     print "Service stopped normally..."
   finally:
     msg[0].close()
@@ -222,10 +282,12 @@ def processRequest(msg, target):
   opcode = header[0]
   messageSize = int(header[1])
   message = conn.recv(messageSize, socket.MSG_WAITALL)
+  print "Message received ", message, " from ", conn.getsockname()
  
   if opcode is "C":
+    print 'Received a client message from ', conn.getsockname()
     if imPrimary:
-      proposeValue(message)
+      proposeValue(message, conn)
     else:
       global viewNum
       global viewLock
@@ -236,14 +298,19 @@ def processRequest(msg, target):
         view_change()
 
   elif opcode is "L":
+    print 'Received an I am leader message from', conn.getpeername()
     acceptor(message, 'L')
+    conn.close()
   
   elif opcode is "F":
+    print "Got a follow message"
 
   elif opcode is "P":
+    print 'Received an Accept message from', conn.getpeername()
     acceptor(message, 'P')
 
   elif opcode is "A":
+    print 'Received a Learn message from', conn.getpeername() 
     learner(message)
 
   else:
@@ -286,7 +353,6 @@ def start():
     followers.append(numOfServers) # append serverID
     server_host_port.append((host,port))
     numOfServers += 1
-  f.close()
 
   global serverID
   serverID = int(sys.argv[2])
