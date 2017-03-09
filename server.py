@@ -46,6 +46,19 @@ def receive():
   finally:
     s.close()
 
+def broadcast(header, msg):
+  for host_port in server_host_port:
+    s = socket.socket()
+
+    #Try to connect to replica. If connection fails, just exit        
+    try:
+      s.connect(host_port)
+      #Send message to replica. If fails, exit
+      s.sendall(header)
+      s.sendall(msg)
+    except:
+      print 'Could not connect to ', host_port
+      return
 
 def view_change():
   '''
@@ -116,9 +129,7 @@ def acceptor(message, op):
       #Broadcast to all replicas learned message
       msg = str(view) + '|' +  str(seqNum) + '|' + chat
       header = 'A|' + str(len(msg)) + "$"
-    #else:
-      #Don't commit value. Reject leader TODO or just ignore??
-
+      broadcast(header, msg)
   
   return
 
