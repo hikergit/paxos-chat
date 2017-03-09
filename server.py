@@ -31,12 +31,13 @@ def receive():
     if I'm not the primary
       start view_change
   '''
+  s = socket.socket()
   try:
-    host = socket.gethostbyname(socket.gethostname())
+    # host = socket.gethostbyname(socket.gethostname())
+    host = socket.gethostname()
     port = int(sys.argv[1].strip())
     print "Server running on " + host + ":" + str(port)
     global messageQ
-    s = socket.socket()
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(('', port))
     global viewNum
