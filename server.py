@@ -44,8 +44,7 @@ def receive():
     while True:
       s.listen(5)
       c, addr = s.accept()
-      #print "Server ", serverID, " Receives connection from ", addr
-      print "Adding to queue", c.getpeername()
+      #print "Adding to queue", c.getpeername()
       viewLock.acquire()
       messageQ.put((c, viewNum))
       viewLock.release()
@@ -155,7 +154,21 @@ def learner(message):
   #Check when the counter hits f+1 and deliver the message
   if learning[seqNum][view] == (numOfServers / 2):
     writeLog(seqNum, chat, view, 'L')
-    print chatLog 
+  
+    path = "./log/"
+    filename =  path + "serverLog" + sys.argv[2] + ".log"
+    if not os.path.exists(path):
+      try:
+        os.makedirs(path)
+      except OSError as exc: # Guard against race condition
+        if exc.errno != errno.EEXIST:
+          raise
+    target = open(filename, 'w')
+    target.truncate()   
+    for line in chatLog:
+      target.write(line[0] + '\n')
+    target.close()
+    print "---- CHAT LOG----", chatLog 
    
     chat = chat.split('|')
     clientId = int(chat[0])
@@ -191,9 +204,9 @@ def proposer():
 #States are 'A'->Accepted, 'L'->Learned, 'N'->Noop, ''->Nothing
 def writeLog(seqNum, msg, view, state):
   while len(chatLog) <= seqNum:
-    chatLog.append(('',view, ''))
+    chatLog.append(['',view, ''])
     
-  chatLog[seqNum] = (msg,view,state)
+  chatLog[seqNum] = [msg,view,state]
 
 
 # This should only receive PREPARE messages and ACCEPT messages
@@ -243,28 +256,19 @@ def acceptor(message, op):
 def service():
   seq_num = 0
   global messageQ
-  path = "./log/"
-  filename =  path + "serverLog" + sys.argv[2] + ".log"
-  if not os.path.exists(path):
-      try:
-          os.makedirs(path)
-      except OSError as exc: # Guard against race condition
-          if exc.errno != errno.EEXIST:
-              raise
-  target = open(filename, 'w')
-  target.truncate()
+  
 
   try:
     while(1):
       msg = messageQ.get() # this is a tuple of (socket, requestViewNum)
-      processRequest(msg, target)
+      processRequest(msg)
   except KeyboardInterrupt:
     print "Service stopped normally..."
   finally:
     msg[0].close()
     target.close()
 
-def processRequest(msg, target):
+def processRequest(msg):
   # keep a local queue
   buf = ""
   header = ""
