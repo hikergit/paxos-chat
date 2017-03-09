@@ -43,7 +43,6 @@ Header Message - values in body
         
     5. A | messageSize $ => Follower accepts value. Acceptor sends to learner
         viewNum | seqNum | message
->>>>>>> 1b0cc4f89ef5dda554665af85e23cbf7c3c5a82e
 
 Client receive:
 	1. Send response

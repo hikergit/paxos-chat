@@ -14,6 +14,9 @@ viewLock = Lock()
 server_host_port = []
 chatLog = [] #[view#, message(clientId, clientSEQ, message)]
 learning = {}
+serverID = 0
+numOfServers = 0
+imPrimary = False
 
 
 def receive():
@@ -201,11 +204,20 @@ def start():
   global server_host_port
   file = open(CONFIG,'r')
 
+  global numOfServers
+
   for line in file:
     host,port = line.strip().split(' ')
     port = int(port)
     server_host_port.append((host,port))
+    numOfServers += 1
   f.close()
+
+  global serverID
+  serverID = int(sys.argv[2])
+
+  global imPrimary
+  imPrimary = (viewNum % numOfServers == serverID)
 
   service_thread = Thread(target=service, args=())
   service_thread.start()
