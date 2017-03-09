@@ -5,6 +5,7 @@ import Queue
 import os
 import time
 import json
+from sets import Set
 from threading import Thread, Lock
 
 CONFIG = 'config.txt'
@@ -19,8 +20,9 @@ serverID = 0
 numOfServers = 0
 imPrimary = False
 nextSeqNum = 0
-followers = []
+followers = Set()
 clientMap = {}
+primaryReqs = []
 
 def receive():
   '''
@@ -105,11 +107,13 @@ def proposeValue(clientMessage, conn):
  
   #Save socket
   if clientId in clientMap:
+    print '[Propose Value] Client socket updated in clientMap'
     clientMap[clientId][1] = conn
   else:
+    print '[Propose Value] Saved client socket to clientMap'
     clientMap[clientId] = [-1, conn]
 
-def view_change():
+def view_change(message, conn):
   '''
   TODO: Need a lock here to denote we are in the middle of a View change.
   While in a view change
@@ -122,16 +126,24 @@ def view_change():
   global imPrimary
   global numOfServers
   global serverID
+  global primaryReqs
 
   viewLock.acquire()
   viewNum += 1
   viewLock.release()
 
-  #TODO: Am I now the Primary? Set a flag if so
   if viewNum % numOfServers == serverID:
     imPrimary = True
+
+    primaryReqs.append([message, conn])
+
+    msg = str(viewNum)
+    header = 'L|' + str(len(msg)) + '$'
+    broadcast(header, msg)
+    
   else:
     imPrimary = False
+
   return
 
 #Receives message. Needs slot Y, view Z, and value X.  
@@ -228,9 +240,8 @@ def writeLog(seqNum, msg, view, state):
 
 
 # This should only receive PREPARE messages and ACCEPT messages
-# PREPARE: Accept the new leader or reject based on viewNum
 # ACCEPT: Commit the value or reject based on if this leader is still your leader
-def acceptor(message, op):
+def acceptor(message):
   try:
     trim = message.split('|')
     view = int(trim[0])
@@ -243,48 +254,88 @@ def acceptor(message, op):
     return
 
   global viewNum
-  global viewLock
-  global numOfServers
-  viewLock.acquire()
 
-  if op is 'L':
-    if view >= viewNum:
-      #Send you are leader
-      msg = str(view) + "|" + json.dumps(chatLog)
-      header = 'F|' + str(len(msg)) + "$"
-      primary = server_host_port[view % numOfServers]
-      sendMsg(header, msg, primary) 
-      viewNum = view
-
-  else:
-    #If we are still following this leader
-    if view is viewNum:
-      #Broadcast to all replicas learned message
-      msg = str(view) + '|' +  str(seqNum) + '|' + chat
-      header = 'A|' + str(len(msg)) + "$"
-      writeLog(seqNum, chat, view, 'A')
-      print "Broadcasting to learners"
-      print "Message is ", msg
-      broadcast(header, msg)
+  #If we are still following this leader
+  if view is viewNum:
+    #Broadcast to all replicas learned message
+    msg = str(view) + '|' +  str(seqNum) + '|' + chat
+    header = 'A|' + str(len(msg)) + "$"
+    writeLog(seqNum, chat, view, 'A')
+    print "Broadcasting to learners"
+    print "Message is ", msg
+    broadcast(header, msg)
   
-  viewLock.release()
   return
 
+# PREPARE: Accept the new leader or ignore based on viewNum
+def newLeader(message):
 
+  view = int(message)
+
+  global chatLog
+  global viewNum
+  global numOfServers
+  global viewLock
+  global serverID
+  viewLock.acquire()
+
+  # If we get outed by a new primary, we are no longer primary and we clear our local req queue
+  if view > viewNum and imPrimary:
+    imPrimary = False
+    global primaryReqs
+    global followers
+    primaryReqs = []
+    followers = Set()
+
+  if view >= viewNum:
+    #Send you are leader
+    msg = str(view) + "|" + str(serverID) + '|' + json.dumps(chatLog)
+    header = 'F|' + str(len(msg)) + "$"
+    primary = server_host_port[view % numOfServers]
+    sendMsg(header, msg, primary) 
+    viewNum = view
+
+  viewLock.release()
+
+# The primary handles receiving a YOU ARE LEADER message
+def follower(message):
+
+  try:
+    trim = message.split('|')
+    view = int(trim[0])
+    followerID = int(trim[1])
+  except: 
+    print "Message is ill formed in learner. Message here ", message
+    print sys.exc_info()[0]
+    return
+  
+  global followers
+  global viewNum
+  global numOfServers
+  global primaryReqs
+
+  if viewNum is view:
+    followers.add(followerID)
+
+    if len(followers) == (numOfServers / 2 + 1):
+      for req in primaryReqs:
+        proposeValue(req[0], req[1])
+      primaryReqs = []  #Clear queue after servicing
+
+  else: 
+    print "[Follower] Views aren't aligned in Follower"
+
+  
 def service():
   seq_num = 0
   global messageQ
   
-
   try:
     while(1):
       msg = messageQ.get() # this is a tuple of (socket, requestViewNum)
       processRequest(msg)
   except KeyboardInterrupt:
     print "Service stopped normally..."
-  finally:
-    msg[0].close()
-    target.close()
 
 def processRequest(msg):
   # keep a local queue
@@ -303,7 +354,15 @@ def processRequest(msg):
   if opcode is "C":
     print 'Received a client message from ', conn.getsockname()
     if imPrimary:
-      proposeValue(message, conn)
+
+      #If primary has majority, propose client's request
+      if len(followers) > (numOfServers / 2):
+        proposeValue(message, conn)
+      # Otherwise, need to wait until we have majority and save client req in local queue 
+      else:
+        global primaryReqs
+        primaryReqs.append([message, conn])
+
     else:
       global viewNum
       global viewLock
@@ -311,20 +370,21 @@ def processRequest(msg):
       currentView = viewNum
       viewLock.release()
       if requestViewNum is currentView:
-        view_change()
+        view_change(message, conn)
 
   elif opcode is "L":
     print 'Received an I am leader message from', conn.getpeername()
     #TODO: if imPrimary - Do I now switch to new leader? Any cleanup??
-    acceptor(message, 'L')
-    conn.close()
+    newLeader(message)
   
   elif opcode is "F":
-    print "Got a follow message"
+    if imPrimary:
+      print "Got a follow message"
+      follower(message)
 
   elif opcode is "P":
     print 'Received an Accept message from', conn.getpeername()
-    acceptor(message, 'P')
+    acceptor(message)
 
   elif opcode is "A":
     print 'Received a Learn message from', conn.getpeername() 
@@ -367,7 +427,6 @@ def start():
   for line in file:
     host,port = line.strip().split(' ')
     port = int(port)
-    followers.append(numOfServers) # append serverID
     server_host_port.append((host,port))
     numOfServers += 1
 
@@ -380,6 +439,10 @@ def start():
   viewLock.acquire()
   imPrimary = (viewNum % numOfServers == serverID)
   viewLock.release()
+
+  if imPrimary:
+    for n in range(numOfServers):
+      followers.add(n)
 
   service_thread = Thread(target=service, args=())
   service_thread.start()
