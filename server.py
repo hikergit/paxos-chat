@@ -112,13 +112,27 @@ def proposeValue(clientMessage, conn):
 
 def view_change():
   '''
-  keep client requests in the client_req queue
-  keep accepting until we see a message from server
+  TODO: Need a lock here to denote we are in the middle of a View change.
+  While in a view change
+    - keep client requests in the client_req queue if we are the new primary
+    - keep accepting until we see an I AM LEADER message from server if we aren't primary
+    - keep accepting YOU ARE LEADER messages until we have majority
   '''
   global viewNum
   global viewLock
+  global imPrimary
+  global numOfServers
+  global serverID
+
   viewLock.acquire()
+  viewNum += 1
   viewLock.release()
+
+  #TODO: Am I now the Primary? Set a flag if so
+  if viewNum % numOfServers == serverID:
+    imPrimary = True
+  else:
+    imPrimary = False
   return
 
 #Receives message. Needs slot Y, view Z, and value X.  
@@ -185,7 +199,6 @@ def learner(message):
       clientMap[clientId] = [clientSeqNum, socket.socket()]
 
     if imPrimary:
-      #TODO Send back to client
       try:
         msg = str(clientSeqNum) + "$"
         clientMap[clientId][1].sendall(msg)
@@ -303,6 +316,7 @@ def processRequest(msg):
 
   elif opcode is "L":
     print 'Received an I am leader message from', conn.getpeername()
+    #TODO: if imPrimary - Do I now switch to new leader? Any cleanup??
     acceptor(message, 'L')
     conn.close()
   
