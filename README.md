@@ -21,7 +21,7 @@ Messages
 
 
 Header Message - everything in header
-    1. C | clientID | clientSeq_num | messageSize $ Message =>      Client Send Header
+    1. C | clientID | clientSeqnum | messageSize $ Message =>      Client Send Header
    
     2. L | viewNum $ =>  I am Leader message.          Proposer sends to acceptors. ONLY NEED HEADER MESSAGE here
     3. F | viewNum | prevView# | prevMessageSize $ prevMessage => You are leader message. Acceptor sends to proposer
@@ -36,7 +36,7 @@ Header Message - values in body
         viewNum | n/a | n/a
 
     3. F | messageSize $ => You are leader message. Acceptor sends to proposer
-        viewNum | prevView# | message
+        viewNum | chatLog | n/a
 
     4. P | messageSize $ => Leader proposes value. Proposer sends to majority
         viewNum | seqNum | message

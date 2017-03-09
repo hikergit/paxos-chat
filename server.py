@@ -4,6 +4,7 @@ import thread
 import Queue
 import os
 import time
+import json
 from threading import Thread, Lock
 
 CONFIG = 'config.txt'
@@ -54,16 +55,23 @@ def receive():
 
 def broadcast(header, msg):
   for host_port in server_host_port:
-    s = socket.socket()
+    sendMsg(header, msg, host_port)
 
-    #Try to connect to replica. If connection fails, just exit        
-    try:
-      s.connect(host_port)
-      #Send message to replica. If fails, exit
-      s.sendall(header)
-      s.sendall(msg)
-    except:
-      print 'Could not connect to ', host_port
+
+def sendMsg(header, msg, host_port):
+  s = socket.socket()
+
+  #Try to connect to replica. If connection fails, just exit        
+  try:
+    s.connect(host_port)
+    #Send message to replica. If fails, exit
+    s.sendall(header)
+    s.sendall(msg)
+  except:
+    print 'Could not connect to ', host_port
+
+  s.close()
+ 
 
 def proposeValue(clientMessage):
   global viewNum
@@ -73,7 +81,7 @@ def proposeValue(clientMessage):
   message = str(viewNum) + '|' + str(nextSeqNum) + '|' + clientMessage
   viewLock.release()
   nextSeqNum += 1
-  header  = "P|" + len(message) + '$'
+  header  = "P|" + str(len(message)) + '$'
   broadcast(header, message)
 
 
@@ -116,6 +124,7 @@ def learner(message):
     slot[view] = 1
 
   #TODO: Check when the counter hits f+1 and deliver the message
+
   
   return
 
@@ -125,6 +134,17 @@ def proposer():
   '''
 
   return
+
+#Write to the chat log. If seqNum exists, update with message and state
+#If seqNum doesn't exist, add holes until we hit seqNum. Then update
+#Form is ( state, view, message )
+#States are 'A'->Accepted, 'L'->Learned, 'N'->Noop, ''->Nothing
+def writeLog(seqNum, msg, view, state):
+  while len(chatLog) <= seqNum:
+    chatLog.append(('',view, ''))
+    
+  chatLog[seqNum] = (msg,state)
+
 
 # This should only receive PREPARE messages and ACCEPT messages
 # PREPARE: Accept the new leader or reject based on viewNum
@@ -141,24 +161,28 @@ def acceptor(message, op):
 
   global viewNum
   global viewLock
+  global numOfServers
   viewLock.acquire()
-  currentView = viewNum
-  viewLock.release()
 
   if op is 'L':
-    if view >= currentView:
+    if view >= viewNum:
       #Send you are leader
-      msg = str(currentView) + str(view) + 
-      view = currentView
+      msg = str(view) + "|" + json.dumps(chatLog)
+      header = 'F|' + str(len(msg)) + "$"
+      primary = server_host_port[view % numOfServers]
+      sendMsg(header, msg, primary) 
+      viewNum = view
 
   else:
     #If we are still following this leader
-    if view is currentView:
+    if view is viewNum:
       #Broadcast to all replicas learned message
       msg = str(view) + '|' +  str(seqNum) + '|' + chat
       header = 'A|' + str(len(msg)) + "$"
+      writeLog(seqNum, chat, view, 'A')
       broadcast(header, msg)
   
+  viewLock.release()
   return
 
 
