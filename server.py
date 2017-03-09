@@ -99,7 +99,6 @@ def proposeValue(clientMessage, conn):
       return
 
   message = str(viewNum) + '|' + str(nextSeqNum) + '|' + clientMessage
-  viewLock.release()
   nextSeqNum += 1
   header  = "P|" + str(len(message)) + '$'
   broadcast(header, message)
