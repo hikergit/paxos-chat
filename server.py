@@ -20,7 +20,7 @@ numOfServers = 0
 imPrimary = False
 nextSeqNum = 0
 followers = []
-
+clientMap = {}
 
 def receive():
   '''
@@ -73,15 +73,36 @@ def sendMsg(header, msg, host_port):
   s.close()
  
 
-def proposeValue(clientMessage):
+def proposeValue(clientMessage, conn):
   global viewNum
   global viewLock
   global nextSeqNum
+  global clientMap
+
+  parse = clientMessage.split('|')
+  clientId = int(parse[0])
+  clientSeq = int(parse[1])
+
+  #Check the clientID. If we have already decided this value, respond to the client
+  if clientId in clientMap:
+    if clientMap[clientId][0] is clientSeq:
+      conn.send(str(clientSeq) + "$")
+      conn.close()
+      return
+    elif clientMap[clientId][0] > clientSeq:
+      #Ignore
+      return
+
   message = str(viewNum) + '|' + str(nextSeqNum) + '|' + clientMessage
   nextSeqNum += 1
   header  = "P|" + str(len(message)) + '$'
   broadcast(header, message)
-
+ 
+  #Save socket
+  if clientId in clientMap:
+    clientMap[clientId][1] = conn
+  else:
+    clientMap[clientId] = (-1, conn)
 
 def view_change():
   '''
@@ -95,6 +116,11 @@ def learner(message):
   '''
   view#
   '''
+  global learning
+  global numOfServers
+  global imPrimary
+  global clientMap
+
   try:
     message = message.split('|')
     view = int(message[0])
@@ -107,18 +133,37 @@ def learner(message):
   #If slot Y not in dict, add and set counter for view Z to 1
   if seqNum not in learning:
     learning[seqNum] = {view: 1}
-    return
-  
-  slot = learning[seqNum]
-
-  #If view Z is in slot Y, increment counter. Else, add view Z to slot Y with counter at 1
-  if view in slot:
-    slot[view] += 1
+ 
   else:
-    slot[view] = 1
+    slot = learning[seqNum]
 
-  #TODO: Check when the counter hits f+1 and deliver the message
+    #If view Z is in slot Y, increment counter. Else, add view Z to slot Y with counter at 1
+    if view in slot:
+      slot[view] += 1
+    else:
+      slot[view] = 1
 
+  #Check when the counter hits f+1 and deliver the message
+  if learning[seqNum][view] >= (numOfServers / 2):
+    writeLog(seqNum, chat, view, 'L')
+   
+    chat = chat.split('|')
+    clientId = int(chat[0])
+    clientSeqNum = int(chat[1])
+
+    if clientId in clientMap:
+      clientMap[clientId][0] = clientSeqNum
+    else:
+      clientMap[clientId] = (clientSeqNum, socket.socket())
+
+    if imPrimary:
+      #TODO Send back to client
+      try:
+        msg = str(clientSeqNum) + "$"
+        clientMap[clientId][1].sendAll(msg)
+        clientMap[clientId][1].close()
+      except:
+        print "Didn't send back to the client. Message failed"
   
   return
 
@@ -136,7 +181,7 @@ def writeLog(seqNum, msg, view, state):
   while len(chatLog) <= seqNum:
     chatLog.append(('',view, ''))
     
-  chatLog[seqNum] = (msg,state)
+  chatLog[seqNum] = (msg,view,state)
 
 
 # This should only receive PREPARE messages and ACCEPT messages
@@ -218,7 +263,7 @@ def processRequest(msg, target):
  
   if opcode is "C":
     if imPrimary:
-      proposeValue(message)
+      proposeValue(message, conn)
     else:
       global viewNum
       global viewLock
@@ -230,6 +275,7 @@ def processRequest(msg, target):
 
   elif opcode is "L":
     acceptor(message, 'L')
+    conn.close()
   
   elif opcode is "F":
 
