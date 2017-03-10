@@ -74,7 +74,7 @@ def sendMsg(header, msg, host_port):
     #Send message to replica. If fails, exit
     s.sendall(header)
     s.sendall(msg)
-    print "Sent message to port", host_port[1], "from port", s.getsockname()
+    #print "Sent message to port", host_port[1], "from port", s.getsockname()
 
   except:
     print sys.exc_info()[0]
