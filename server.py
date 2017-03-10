@@ -21,9 +21,10 @@ numOfServers = 0
 majority = 0
 imPrimary = False
 nextSeqNum = 0
-followers = Set()
+followers = {}
 clientMap = {}
 primaryReqs = []
+maxLog = 0
 
 def receive():
   '''
@@ -209,7 +210,8 @@ def learner(message):
     clientSeqNum = int(chat[1])
 
     if clientId in clientMap:
-      clientMap[clientId][0] = clientSeqNum
+      if clientMap[clientId][0] < clientSeqNum:
+        clientMap[clientId][0] = clientSeqNum
     else:
       clientMap[clientId] = [clientSeqNum, socket.socket()]
 
@@ -217,11 +219,9 @@ def learner(message):
 
     if imPrimary:
       try:
-        print 'Sending back to client'
         msg = str(clientSeqNum) + "$"
         clientMap[clientId][1].sendall(msg)
         clientMap[clientId][1].close()
-        print 'Sent back to client'
         print 'Message sent', msg
       except:
         print sys.exc_info()[0]
@@ -229,17 +229,10 @@ def learner(message):
   
   return
 
-def proposer():
-  '''
-  proposing I'm your leader and values
-  '''
-
-  return
-
 #Write to the chat log. If seqNum exists, update with message and state
 #If seqNum doesn't exist, add holes until we hit seqNum. Then update
 #Form is ( state, view, message )
-#States are 'A'->Accepted, 'L'->Learned, 'N'->Noop, ''->Nothing
+#States are 'A'->Accepted, 'L'->Learned, ''->Nothing
 def writeLog(seqNum, msg, view, state):
   while len(chatLog) <= seqNum:
     chatLog.append(['',view, ''])
@@ -294,7 +287,7 @@ def newLeader(message):
     global primaryReqs
     global followers
     primaryReqs = []
-    followers = Set()
+    followers = {}
 
   if view >= viewNum:
     #Send you are leader
@@ -313,6 +306,10 @@ def follower(message):
     trim = message.split('|')
     view = int(trim[0])
     followerID = int(trim[1])
+    cut = len(trim[0]) + 1 + len(trim[1]) + 1
+    data = message[cut:]
+    log = json.loads(data)
+    
   except: 
     print "Message is ill formed in learner. Message here ", message
     print sys.exc_info()[0]
@@ -322,11 +319,40 @@ def follower(message):
   global viewNum
   global majority
   global primaryReqs
+  global maxLog
 
   if viewNum is view:
-    followers.add(followerID)
+    followers[followerID] = log
+    if len(log) > maxLog:
+      maxLog = len(log)
 
     if len(followers) == majority:
+
+      #Fill in holes for chat logs
+      for seq in range(maxLog):
+        msg = ''
+        header = ''
+        maxView = -1
+        for server,log in followers.iteritems():
+          if len(log) > seq:
+            # log[seq] in format [msg, view, state], state is 'A', 'L', or ''
+            if log[seq][2] is 'L':
+              # propose message view#|seq#|message
+              msg = str(viewNum) + '|' + str(seq) + '|' + log[seq][0]
+              header = "P|" + str(len(msg)) + '$'
+              break # stops when finding a learnt value
+            elif log[seq][2] is 'A':
+              if log[seq][1] > maxView :
+                msg = str(viewNum) + '|' + str(seq) + '|' + log[seq][0]
+                header = "P|" + str(len(msg)) + '$'
+                maxView = log[seq][1]
+        if msg is '':
+          # propose NOOP
+          msg = str(viewNum) + '|' + str(seq) + '|-1|-1|NOOP'
+          header = "P|" + str(len(msg)) + '$'
+        broadcast(header, msg)
+
+      #Service the client local queue
       for req in primaryReqs:
         proposeValue(req[0], req[1])
       primaryReqs = []  #Clear queue after servicing
@@ -461,7 +487,7 @@ def start():
 
   if imPrimary:
     for n in range(numOfServers):
-      followers.add(n)
+      followers[n] = []
 
   service_thread = Thread(target=service, args=())
   service_thread.start()
