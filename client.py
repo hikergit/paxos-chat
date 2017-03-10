@@ -15,6 +15,7 @@ responses = Queue.Queue()
 seq_num = 0
 server_host_port = []
 primary = ("0.0.0.0", 0) # host, port
+MAX_SEQ_LEN = 10
 
 def broadcast_thread(host_port, header, msg, timeout):
   global responses
@@ -27,22 +28,33 @@ def broadcast_thread(host_port, header, msg, timeout):
     #Send message to replica. If fails, exit
     s.sendall(header)
     s.sendall(msg)
+    print 'b thread started for port', host_port[1]
     #Wait for reply 
     buf = ""
     resp = ""
-    while buf != "$":
-      resp += buf
+    global MAX_SEQ_LEN
+    for i in range(MAX_SEQ_LEN):
       buf = s.recv(1, socket.MSG_WAITALL)
+      if buf != "$":
+        resp += buf
+      else:
+        resp_pair = (int(resp), host_port) # (responce client seq, (host, port))
+        responses.put(resp_pair) 
+        print 'Broadcast thread ended for port', host_port[1]
+        print 'Resp received', resp
+        break
+
   except:
     print 'Could not connect to ', host_port
+    print sys.exc_info()[0]
+    print 'B Thread ended', host_port[1]
     return
-  resp_pair = (int(resp), host_port) # (responce client seq, (host, port))
-  responses.put(resp_pair) 
-  
+
+ 
 
 def broadcast(header, msg):
   global responses
-  timeout = 1
+  timeout = 5.0
   while responses.empty :
     for host_port in server_host_port:
       thread_list = []

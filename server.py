@@ -18,6 +18,7 @@ chatLog = [] #[view#, message(clientId, clientSEQ, message)]
 learning = {}
 serverID = 0
 numOfServers = 0
+majority = 0
 imPrimary = False
 nextSeqNum = 0
 followers = Set()
@@ -93,6 +94,7 @@ def proposeValue(clientMessage, conn):
   #Check the clientID. If we have already decided this value, respond to the client
   if clientId in clientMap:
     if clientMap[clientId][0] is clientSeq:
+      print 'Sending back to client becuase already serviced'
       conn.send(str(clientSeq) + "$")
       conn.close()
       return
@@ -143,6 +145,7 @@ def view_change(message, conn):
     
   else:
     imPrimary = False
+    conn.close()
 
   return
 
@@ -152,7 +155,7 @@ def learner(message):
   view#
   '''
   global learning
-  global numOfServers
+  global majority
   global imPrimary
   global clientMap
 
@@ -182,7 +185,7 @@ def learner(message):
       slot[view] = 1
 
   #Check when the counter hits f+1 and deliver the message
-  if learning[seqNum][view] == (numOfServers / 2):
+  if learning[seqNum][view] == majority:
     writeLog(seqNum, chat, view, 'L')
   
     path = "./log/"
@@ -215,6 +218,7 @@ def learner(message):
         clientMap[clientId][1].sendall(msg)
         clientMap[clientId][1].close()
         print 'Sent back to client'
+        print 'Message sent', msg
       except:
         print sys.exc_info()[0]
         print "Didn't send back to the client. Message failed"
@@ -278,6 +282,7 @@ def newLeader(message):
   global viewLock
   global serverID
   viewLock.acquire()
+  global imPrimary
 
   # If we get outed by a new primary, we are no longer primary and we clear our local req queue
   if view > viewNum and imPrimary:
@@ -311,13 +316,13 @@ def follower(message):
   
   global followers
   global viewNum
-  global numOfServers
+  global majority
   global primaryReqs
 
   if viewNum is view:
     followers.add(followerID)
 
-    if len(followers) == (numOfServers / 2 + 1):
+    if len(followers) == majority:
       for req in primaryReqs:
         proposeValue(req[0], req[1])
       primaryReqs = []  #Clear queue after servicing
@@ -339,6 +344,9 @@ def service():
 
 def processRequest(msg):
   # keep a local queue
+  global majority
+  global imPrimary
+
   buf = ""
   header = ""
   conn, requestViewNum = msg
@@ -356,7 +364,7 @@ def processRequest(msg):
     if imPrimary:
 
       #If primary has majority, propose client's request
-      if len(followers) > (numOfServers / 2):
+      if len(followers) >= majority:
         proposeValue(message, conn)
       # Otherwise, need to wait until we have majority and save client req in local queue 
       else:
@@ -429,6 +437,9 @@ def start():
     port = int(port)
     server_host_port.append((host,port))
     numOfServers += 1
+
+  global majority
+  majority = (numOfServers / 2) + 1
 
   global serverID
   serverID = int(sys.argv[2])
