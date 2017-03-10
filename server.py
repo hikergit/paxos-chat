@@ -403,10 +403,8 @@ def processRequest(msg):
   opcode = header[0]
   messageSize = int(header[1])
   message = conn.recv(messageSize, socket.MSG_WAITALL)
-  print "Message received ", message, " from ", conn.getsockname()
  
   if opcode is "C":
-    print 'Received a client message from ', conn.getsockname()
     if imPrimary:
 
       #If primary has majority, propose client's request
@@ -428,24 +426,19 @@ def processRequest(msg):
         view_change(message, conn)
 
         if not imPrimary:
-          print 'Closing fucking connection to client'
           conn.close()
 
   elif opcode is "L":
-    print 'Received an I am leader message from', conn.getpeername()
     newLeader(message)
   
   elif opcode is "F":
     if imPrimary:
-      print "Got a follow message"
       follower(message)
 
   elif opcode is "P":
-    print 'Received an Accept message from', conn.getpeername()
     acceptor(message)
 
   elif opcode is "A":
-    print 'Received a Learn message from', conn.getpeername() 
     learner(message)
 
   else:
