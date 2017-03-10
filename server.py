@@ -95,7 +95,7 @@ def proposeValue(clientMessage, conn):
   if clientId in clientMap:
     if clientMap[clientId][0] is clientSeq:
       print 'Sending back to client becuase already serviced'
-      conn.send(str(clientSeq) + "$")
+      conn.sendall(str(clientSeq) + "$")
       conn.close()
       return
     elif clientMap[clientId][0] > clientSeq:
@@ -135,6 +135,7 @@ def view_change(message, conn):
   viewLock.release()
 
   if viewNum % numOfServers == serverID:
+    print 'I am new primary'
     imPrimary = True
 
     primaryReqs.append([message, conn])
@@ -212,8 +213,11 @@ def learner(message):
     else:
       clientMap[clientId] = [clientSeqNum, socket.socket()]
 
+    print 'Committed learned changes to writeLog'
+
     if imPrimary:
       try:
+        print 'Sending back to client'
         msg = str(clientSeqNum) + "$"
         clientMap[clientId][1].sendall(msg)
         clientMap[clientId][1].close()
@@ -378,11 +382,15 @@ def processRequest(msg):
       currentView = viewNum
       viewLock.release()
       if requestViewNum is currentView:
+        print 'Calling view change'
         view_change(message, conn)
+
+        if not imPrimary:
+          print 'Closing fucking connection to client'
+          conn.close()
 
   elif opcode is "L":
     print 'Received an I am leader message from', conn.getpeername()
-    #TODO: if imPrimary - Do I now switch to new leader? Any cleanup??
     newLeader(message)
   
   elif opcode is "F":

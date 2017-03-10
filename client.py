@@ -32,6 +32,21 @@ def broadcast_thread(host_port, header, msg, timeout):
     #Wait for reply 
     buf = ""
     resp = ""
+    print 'Timeout is ', s.gettimeout()
+    while buf != '$':
+      resp += buf
+      buf = s.recv(1, socket.MSG_WAITALL)
+      if len(buf) == 0:
+        print 'port ', host_port[1], ' has a disconnect'
+        return
+      #if buf == "":
+        #print 'Server disconnected. Ending broadcast thread for port', host_port[1]
+        #return
+
+    resp_pair = (int(resp), host_port) # (responce client seq, (host, port))
+    responses.put(resp_pair) 
+    print "Ending thread. Resp received [", resp, "]"
+    '''
     global MAX_SEQ_LEN
     for i in range(MAX_SEQ_LEN):
       buf = s.recv(1, socket.MSG_WAITALL)
@@ -43,21 +58,23 @@ def broadcast_thread(host_port, header, msg, timeout):
         print 'Broadcast thread ended for port', host_port[1]
         print 'Resp received', resp
         break
+    '''
 
-  except:
-    print 'Could not connect to ', host_port
+  except socket.error:
+    print 'Could not connect to ', host_port[1]
     print sys.exc_info()[0]
-    print 'B Thread ended', host_port[1]
     return
+  except socket.timeout:
+    print 'Socket timed out for port', host_port[1]
 
  
 
 def broadcast(header, msg):
   global responses
-  timeout = 5.0
+  timeout = 1.0
   while responses.empty :
+    thread_list = []
     for host_port in server_host_port:
-      thread_list = []
       # try:
       t = Thread(target=broadcast_thread, args=(host_port, header, msg, timeout))
       t.start()
@@ -65,10 +82,12 @@ def broadcast(header, msg):
       # except:
         # print "Can't create thread"
 
+    print 'Num of threads', len(thread_list)
     for thread_i in thread_list:
       thread_i.join()
     # join()
     # time.sleep(timeout)
+    print 
     if responses.empty() :
       timeout *= 2
       print 'Time out on broadcasting. Broadcasting again'
