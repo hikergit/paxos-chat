@@ -28,11 +28,9 @@ def broadcast_thread(host_port, header, msg, timeout):
     #Send message to replica. If fails, exit
     s.sendall(header)
     s.sendall(msg)
-    print 'b thread started for port', host_port[1]
     #Wait for reply 
     buf = ""
     resp = ""
-    print 'Timeout is ', s.gettimeout()
     while buf != '$':
       resp += buf
       buf = s.recv(1, socket.MSG_WAITALL)
@@ -71,7 +69,7 @@ def broadcast_thread(host_port, header, msg, timeout):
 
 def broadcast(header, msg):
   global responses
-  timeout = 1.0
+  timeout = 4.0
   while responses.empty :
     thread_list = []
     for host_port in server_host_port:

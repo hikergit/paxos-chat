@@ -22,7 +22,7 @@ majority = 0
 imPrimary = False
 nextSeqNum = 0
 followers = {}
-clientMap = {}
+clientMap = {}  #Dictionary holds clients as keys. Values are [seqNum, socket]. SeqNum is highest seqnum we have sent back to client
 primaryReqs = []
 maxLog = 0
 
@@ -94,7 +94,7 @@ def proposeValue(clientMessage, conn):
 
   #Check the clientID. If we have already decided this value, respond to the client
   if clientId in clientMap:
-    if clientMap[clientId][0] is clientSeq:
+    if clientMap[clientId][0] == clientSeq:
       print 'Sending back to client becuase already serviced'
       conn.sendall(str(clientSeq) + "$")
       conn.close()
@@ -186,6 +186,8 @@ def learner(message):
     else:
       slot[view] = 1
 
+  print 'Learners found', learning[seqNum][view], ' seq:', seqNum, 'viewnum:', viewNum
+
   #Check when the counter hits f+1 and deliver the message
   if learning[seqNum][view] == majority:
     writeLog(seqNum, chat, view, 'L')
@@ -209,25 +211,24 @@ def learner(message):
     clientId = int(chat[0])
     clientSeqNum = int(chat[1])
 
+    if imPrimary:
+      try:
+        if clientMap[clientId][0] < clientSeqNum:
+          msg = str(clientSeqNum) + "$"
+          clientMap[clientId][1].sendall(msg)
+          clientMap[clientId][1].close()
+          print 'Message sent', msg
+      except:
+        print sys.exc_info()[0]
+        print "Didn't send back to the client. Message failed"
+ 
     if clientId in clientMap:
       if clientMap[clientId][0] < clientSeqNum:
         clientMap[clientId][0] = clientSeqNum
     else:
       clientMap[clientId] = [clientSeqNum, socket.socket()]
 
-    print 'Committed learned changes to writeLog'
-
-    if imPrimary:
-      try:
-        msg = str(clientSeqNum) + "$"
-        clientMap[clientId][1].sendall(msg)
-        clientMap[clientId][1].close()
-        print 'Message sent', msg
-      except:
-        print sys.exc_info()[0]
-        print "Didn't send back to the client. Message failed"
-  
-  return
+    return
 
 #Write to the chat log. If seqNum exists, update with message and state
 #If seqNum doesn't exist, add holes until we hit seqNum. Then update
@@ -320,6 +321,7 @@ def follower(message):
   global majority
   global primaryReqs
   global maxLog
+  global nextSeqNum
 
   if viewNum is view:
     followers[followerID] = log
@@ -335,13 +337,16 @@ def follower(message):
         maxView = -1
         for server,log in followers.iteritems():
           if len(log) > seq:
+            print 'examining server:', server, ' for seq ', seq
+            print log
             # log[seq] in format [msg, view, state], state is 'A', 'L', or ''
-            if log[seq][2] is 'L':
+            if log[seq][2] == 'L':
+              print 'Found a learned value'
               # propose message view#|seq#|message
               msg = str(viewNum) + '|' + str(seq) + '|' + log[seq][0]
               header = "P|" + str(len(msg)) + '$'
               break # stops when finding a learnt value
-            elif log[seq][2] is 'A':
+            elif log[seq][2] == 'A':
               if log[seq][1] > maxView :
                 msg = str(viewNum) + '|' + str(seq) + '|' + log[seq][0]
                 header = "P|" + str(len(msg)) + '$'
@@ -350,8 +355,11 @@ def follower(message):
           # propose NOOP
           msg = str(viewNum) + '|' + str(seq) + '|-1|-1|NOOP'
           header = "P|" + str(len(msg)) + '$'
+
+        print 'Broadcasting msg:', msg, ' for seq ', seq
         broadcast(header, msg)
 
+      nextSeqNum = maxLog
       #Service the client local queue
       for req in primaryReqs:
         proposeValue(req[0], req[1])
