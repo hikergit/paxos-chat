@@ -25,6 +25,7 @@ followers = {}
 clientMap = {}  #Dictionary holds clients as keys. Values are [seqNum, socket]. SeqNum is highest seqnum we have sent back to client
 primaryReqs = []
 maxLog = 0
+skipSeq = -1
 
 def receive():
   '''
@@ -87,6 +88,7 @@ def proposeValue(clientMessage, conn):
   global viewLock
   global nextSeqNum
   global clientMap
+  global skipSeq
 
   parse = clientMessage.split('|')
   clientId = int(parse[0])
@@ -105,6 +107,8 @@ def proposeValue(clientMessage, conn):
 
   message = str(viewNum) + '|' + str(nextSeqNum) + '|' + clientMessage
   nextSeqNum += 1
+  if nextSeqNum == skipSeq:
+    nextSeqNum += 1
   header  = "P|" + str(len(message)) + '$'
   broadcast(header, message)
  
@@ -359,7 +363,11 @@ def follower(message):
         print 'Broadcasting msg:', msg, ' for seq ', seq
         broadcast(header, msg)
 
+      global skipSeq
       nextSeqNum = maxLog
+      if nextSeqNum == skipSeq:
+        nextSeqNum += 1
+
       #Service the client local queue
       for req in primaryReqs:
         proposeValue(req[0], req[1])
@@ -473,12 +481,18 @@ def start():
   file = open(CONFIG,'r')
 
   global numOfServers
+  global skipSeq
 
+  first = True
   for line in file:
-    host,port = line.strip().split(' ')
-    port = int(port)
-    server_host_port.append((host,port))
-    numOfServers += 1
+    if first:
+      skipSeq = int(line)
+      first = False
+    else:
+      host,port = line.strip().split(' ')
+      port = int(port)
+      server_host_port.append((host,port))
+      numOfServers += 1
 
   global majority
   majority = (numOfServers / 2) + 1

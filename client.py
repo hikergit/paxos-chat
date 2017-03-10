@@ -124,10 +124,14 @@ def clientRun():
   global server_host_port
   file = open(CONFIG,'r')
 
+  first = True
   for line in file:
-    host,port = line.strip().split(' ')
-    port = int(port)
-    server_host_port.append((host,port))
+    if first:
+      first = False
+    else:
+      host,port = line.strip().split(' ')
+      port = int(port)
+      server_host_port.append((host,port))
 
   global primary
   primary = server_host_port[0]

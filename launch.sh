@@ -13,10 +13,13 @@ if [ $( ls $OUT ) ]; then rm $OUT; fi
 
 while [ $id -lt $f ]; 
 do
-  python $server $port $id &
   echo $HOSTNAME $port >> $OUT
   
   let port=port+1
   let id=id+1
 
 done
+
+
+
+python $server $port $id &
