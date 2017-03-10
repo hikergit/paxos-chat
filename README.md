@@ -1,115 +1,24 @@
-TODO:
-    0. Can not connect to CAEN computer, connection refused
-    1. Set up simple client server communication with chat log. Need ClientID, clientSeqNum, and message
-    2. Implement more logic
-    3. Fix client headers. Do we need anything more than the message size in the header??
+# Instructions on running
 
-Question:
-	1. What to do when primary fails before all clients start up
-	2. How does the client connect to the primary
-	3. Is primary both proposer and accepter and learner
-	4. Why do we have multiple learners
-	5. Will there be multiple proposers in our project
-	6. How are we going to detect crash?
-	7. Do all clients send to the same replica or all replicas
-	8. after getting followers, do we broadcast to everyone or just followers
+./launch.sh <number of replicas> <starting port> (sequence number to be skipped_)
 
-Messages
-    Client to Server
-    1. Client sends header with info about msg size {clientId, clientSeqNum, msgSize, "$"}
-    2. Client sends chat message after header {clientId, clientSeqNum, chatMsg}
+1. Argument is the number of server replicas to bring up
+2. Argument is the starting port. Port is incremented for each successive replica.
+Thus, if you start at 3000, and argument 1 is 5, then you will have 5 replicas from
+port 3000 - 3004.
+3. This is optional. Provide a sequence number that will be skipped in execution
+
+#Client instructions
+
+python client.py <clientID>
+
+1. ClientID is a unique identifier for this client
+
+Command line will prompt you for text to chat and will let you know when you
+can send another message
 
 
-Header Message - everything in header
-    1. C | clientID | clientSeqnum | messageSize $ Message =>      Client Send Header
-   
-    2. L | viewNum $ =>  I am Leader message.          Proposer sends to acceptors. ONLY NEED HEADER MESSAGE here
-    3. F | viewNum | prevView# | prevMessageSize $ prevMessage => You are leader message. Acceptor sends to proposer
-    4. P | viewNum | valueSize $ Value => Leader proposes value. Proposer sends to majority
-    5. A | viewNum | valueSize $ Value => Follower accepts value. Acceptor sends to learner
+#Logs
 
-Header Message - values in body
-    1. C |  message size $   =>      Client Send Header
-        clientid | clientSeqNum | chatMessage
-   
-    2. L | messageSize | $ =>  I am Leader message.          Proposer sends to acceptors. ONLY NEED HEADER MESSAGE here
-        viewNum | n/a | n/a
-
-    3. F | messageSize $ => You are leader message. Acceptor sends to proposer
-        viewNum | chatLog | n/a
-
-    4. P | messageSize $ => Leader proposes value. Proposer sends to majority
-        viewNum | seqNum | message
-        
-    5. A | messageSize $ => Follower accepts value. Acceptor sends to learner
-        viewNum | seqNum | message
-
-Client receive:
-	1. Send response
-
-Client send:
-    1. Chat message
-    2. Broadcast message
-
-Server send:
-	1. Update primary
-	2. Initialization
-	3. Update message
-	4. Send response
-
-Server receive:
-    1. Initialization step
-    2. New message
-    3. Termination
-
-
-Steps:
-	1. Servers start up
-	2. All clients send initialization
-	3. Each client sends a message, wait for send response, and send again
-
-class Server{
-	int current_primary = 0;
-	receive_request(){
-		if primary:
-			if not_already_excuted:
-				add to queue
-			else:
-				respond with executed
-		else:
-			if primary_alive(current_primary):
-				do_nothing
-			else:
-				re_elect()
-	}
-
-	service_request(){
-		if queue.not_empty():
-			pop_from_queue()
-			if not_already_excuted:
-				then execute
-			else:
-				respond with executed
-	}
-};
-
-class Client{
-	send_request(){
-		while(input()) {
-			message = new_message(seq++)
-			receive_num = current_primary;
-			send_to_primary(message)
-			while (time_out(receive_num)) {
-				receive_num = 0
-				broadcast(message)
-			}
-		}
-	}
-
-	time_out(int receive_num){
-		if receive_num == 0:
-			receive_from_everyone()
-		else:
-			receive_from(receive_num)
-	}
-};
+Lastly, each server logs it's chat log in the logs/ directory. The directory 
+is organized by serverLog#.log where # is the server's ID number
