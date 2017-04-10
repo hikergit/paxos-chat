@@ -67,6 +67,7 @@ def broadcast(header, msg):
 
 def sendMsg(header, msg, host_port):
   s = socket.socket()
+  s.settimeout(1)
 
   #Try to connect to replica. If connection fails, just exit        
   try:
