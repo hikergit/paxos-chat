@@ -1,3 +1,12 @@
+Sharded:
+    1. Replicas need to execute the command, when there is no holes in the log.
+    2. Replicas won't accept proposal if there is a hole in the log.
+    3. When executing a command in the log, parse the message and execute
+    4. Master create a thread for each request, invoking a function from old client, sendRequest().
+    5. 1 client, 1 shard. 1 client, 2 shards. 1 client, addShard. 2 clients, 3 shards. 
+    6. Implement consistent hashing with circular ring.
+    7. When addShard request comes, wait for total unfinished requests number decrease to 0. Stop receiving new requests. Get value from old shard, put into new shard, delete from old shard.
+
 TODO:
     0. Can not connect to CAEN computer, connection refused
     1. Set up simple client server communication with chat log. Need ClientID, clientSeqNum, and message
