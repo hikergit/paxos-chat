@@ -4,7 +4,7 @@ Sharded:
     3. When executing a command in the log, parse the message and execute
     4. Master create a thread for each request, invoking a function from old client, sendRequest().
     5. 1 client, 1 shard. 1 client, 2 shards. 1 client, addShard. 2 clients, 3 shards. 
-    6. Implement consistent hashing with circular ring.
+    6. Implement consistent hashing with circular ring.  (DONE)
     7. When addShard request comes, wait for total unfinished requests number decrease to 0. Stop receiving new requests. Get value from old shard, put into new shard, delete from old shard.
 
 TODO:
