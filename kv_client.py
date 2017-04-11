@@ -10,8 +10,7 @@ from threading import Thread
 #1. ClientID number. Should be unique
 #2. optional - server ip
 
-CONFIG = 'config.txt'
-seq_num = 0
+CONFIG = 'master_config.txt'
 master = ("0.0.0.0", 0) # host, port
 
 def clientRun():
@@ -27,18 +26,14 @@ def clientRun():
   if len(sys.argv) > 2:
     host = socket.gethostbyname(sys.argv[2].strip())
 
-  global seq_num
-  seq_num = 0
-
   #TODO: read master's host and port from file. Only need first line
-  file = open(CONFIG,'r')
+  line = open(CONFIG,'r').readline()
 
   host,port = line.strip().split(' ')
   port = int(port)
 
   global master
   master = (host,port)
-  timeout = 5
   while(1):
     #Collect chat message for this client
     try:
@@ -47,36 +42,61 @@ def clientRun():
       print 'Program terminated'
       exit()
 
-    msg = str(clientID) + "|" +  str(seq_num) + "|" + str(chat)
-    header = "C|" + str(len(msg)) + "$"
+    parse = chat.split(' ') 
+    request = ""
 
-    #Attempt to connect to master. If fails/timeout, broadcast to all replicas
+    command = parse[0]
+    if command != "get" and command != "put" and command != "delete":
+      print "Unknown command. Must be: get, put, or delete"
+      continue
+    request = command + "|"
+
+    key = ""
+    try:
+      key = parse[1]
+      request = request + key
+    except:
+      print "This command needs a key argument. Format is 'get key', 'put key value', or 'delete key'"
+      continue
+
+    if command == "put":
+      val = ""
+      try:
+        val = parse[2]
+        request = request + "|" + val
+      except:
+        print "Put requires two arguments, key and val. Format is 'put key value'"
+        continue
+ 
+    msg = str(clientID) + "|" + request
+    print "Message sent", msg
+
+    #Attempt to connect to master. Only fails if master is down
     try:
       s = socket.socket()
-      s.settimeout(timeout)
       s.connect(master)
-      #Try to send chat message and header to master
-      s.sendall(header)
+      #Try to send chat message to master
       s.sendall(msg)
-      #Attempt to recv response from master. If times out, increase timeout and send again
+      #Attempt to recv response from master. No timeout, master shouldn't fail
       buf = ""
-      resp = str(seq_num-1) # make sure they are not equal
-      while int(resp) != seq_num:
-        resp = ""
-        buf = ""
-        while buf != "$":
-          resp += buf
-          buf = s.recv(1)
+      resp = ""
+      while buf != "$":
+        resp += buf
+        buf = s.recv(1)
+
+      if command == "get":
+        status, val = resp.split('|')
+        print status
+        print "Value received:", val
+      else:
         print resp
-      seq_num += 1
     except socket.error:
       print 'Master not reachable, check master status'
       exit()
       continue
     except socket.timeout:
-      print 'Master timed out, retrying'
-      timeout *= 2
-      continue
+      print 'How the hell are we timing out. Look into this'
+      exit()
     except:
       print sys.exc_info()[0]
       print 'Did not expect this exception. Exiting'
