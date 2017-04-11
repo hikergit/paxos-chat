@@ -13,21 +13,34 @@ logFile = ""
 CONFIG = 'config.txt'
 messageQ = Queue.Queue()
 
+debugF = True
+runShard = False
 viewNum = 0
 viewLock = Lock()
 server_host_port = []
-chatLog = [] #[view#, message(clientId, clientSEQ, message)], list of [msg,view,state]
+chatLog = [] #[view#, message(clientId, clientSEQ, message)], list of [msg,view,state], state is '' for hole
 learning = {}
 serverID = 0
 numOfServers = 0
 majority = 0
 imPrimary = False
 nextSeqNum = 0
+nextExeSeq = 0 # next sequence number to be executed
 followers = {}
 clientMap = {}  #Dictionary holds clients as keys. Values are [seqNum, socket]. SeqNum is highest seqnum we have sent back to client
+# clientMap = {clientID: {"clientSeqNum":-1, "socket":socket.socket(), "maxExeSeq":-1}}
 primaryReqs = []
 maxLog = 0
 skipSeq = -1
+
+def debugPrint(errmsg):
+  global debugF
+  if debugF:
+    print "@@@DEBUG: "
+    for e in errmsg:
+      print e
+    print "@@@END DEBUG: "
+  return
 
 def receive():
   '''
@@ -98,13 +111,14 @@ def proposeValue(clientMessage, conn):
   clientSeq = int(parse[1])
 
   #Check the clientID. If we have already decided this value, respond to the client
+  # clientMap = {clientID: {"clientSeqNum":-1, "socket":socket.socket(), "maxExeSeq":-1}}
   if clientId in clientMap:
-    if clientMap[clientId][0] == clientSeq:
+    if clientSeq == clientMap[clientId]["maxExeSeq"]:
       print 'Sending back to client becuase already serviced'
       conn.sendall(str(clientSeq) + "$")
       conn.close()
       return
-    elif clientMap[clientId][0] > clientSeq:
+    elif clientSeq < clientMap[clientId]["clientSeqNum"]:
       #Ignore
       return
 
@@ -118,10 +132,10 @@ def proposeValue(clientMessage, conn):
   #Save socket
   if clientId in clientMap:
     print '[Propose Value] Client socket updated in clientMap'
-    clientMap[clientId][1] = conn
+    clientMap[clientId]["socket"] = conn
   else:
     print '[Propose Value] Saved client socket to clientMap'
-    clientMap[clientId] = [-1, conn]
+    clientMap[clientId] = {"clientSeqNum":-1, "socket":conn, "maxExeSeq":-1}
 
 def view_change(message, conn):
   '''
@@ -158,34 +172,56 @@ def view_change(message, conn):
 
   return
 
-def writeLog(cmd):
-  response = ""
-  return response
-  
-def executeCmd(chat):
+def toDict(cmd):
+  # run command as dictionary in shard
+  return "|TODO|shard"
+
+def toLog(cmd):
   global logFile
   global chatLog
-  # chat is like "0|2|three"
-  chatList = chat.split('|')
-  clientId = int(chatList[0])
-  clientSeqNum = int(chatList[1])
-  cmd = chat[(len(chatList[0])+len(chatList[1])+2):]
-
   target = open(logFile, 'a')
-  target.write(chat[(len(chatList[0])+len(chatList[1])+2):] + '\n')
+  target.write(cmd + '\n')
   target.close()
-  print "---- CHAT LOG----", chatLog 
+  print "---- CHAT LOG----"
+  print chatLog 
+  return ""
+  
+def executeCmd():
+  global nextExeSeq
+  global chatLog
+  global imPrimary
+  global runShard
+  debugPrint(["nextSeqNum, len(chatLog)",nextExeSeq, len(chatLog)])
+  for seqNum in range(nextExeSeq, len(chatLog)):
+    if chatLog[seqNum][2] == '':
+      # it's a hole, stop here
+      return
+    else:
+      nextExeSeq += 1
+      chat = chatLog[seqNum][0]
+      # chat is like "0|2|three"
+      chatList = chat.split('|')
+      clientId = int(chatList[0])
+      clientSeqNum = int(chatList[1])
+      cmd = chat[(len(chatList[0])+len(chatList[1])+2):]
+      response = toLog(cmd)
+      if clientId != -1:
+        # if NOOP, just skip, otherwise run this
+        if runShard:
+          response = toDict(cmd)
 
-  if imPrimary:
-    try:
-      if clientMap[clientId][0] < clientSeqNum:
-        msg = str(clientSeqNum) + "$"
-        clientMap[clientId][1].sendall(msg)
-        clientMap[clientId][1].close()
-        print 'Message sent', msg
-    except:
-      print sys.exc_info()[0]
-      print "Didn't send back to the client. Message failed"
+        if imPrimary:
+          debugPrint(["=======I'm primary, imPrimary: ", imPrimary])
+          try:
+            # clientMap = {clientID: {"clientSeqNum":-1, "socket":socket.socket(), "maxExeSeq":-1}}
+            msg = str(clientSeqNum) + response + "$"
+            clientMap[clientId]["socket"].sendall(msg)
+            clientMap[clientId]["socket"].close()
+            clientMap[clientId]["maxExeSeq"] = clientSeqNum
+            print 'Message sent', msg
+          except:
+            print sys.exc_info()[0]
+            print "Didn't send back to the client. Message failed"
 
 
 #Receives message. Needs slot Y, view Z, and value X.  
@@ -227,26 +263,32 @@ def learner(message):
 
   #Check when the counter hits f+1 and deliver the message
   if learning[seqNum][view] == majority:
+    # write to log and execute command
     writeLog(seqNum, chat, view, 'L')
-    executeCmd(chat)
-    if clientId in clientMap:
-      if clientMap[clientId][0] < clientSeqNum:
-        clientMap[clientId][0] = clientSeqNum
-    else:
-      clientMap[clientId] = [clientSeqNum, socket.socket()]
-
-    return
-
+    debugPrint(["=======finished write log"])
+    executeCmd()
+    debugPrint(["=======finished execmd"])
+    #whenever we add a new log we call executeCmd
+    chatList = chat.split('|')
+    clientId = int(chatList[0])
+    if clientId != -1:
+      # if NOOP, just skip, otherwise run this
+      # clientMap = {clientID: {"clientSeqNum":-1, "socket":socket.socket(), "maxExeSeq":-1}}
+      clientSeqNum = int(chatList[1])
+      if clientId in clientMap:
+        if clientMap[clientId]["clientSeqNum"] < clientSeqNum:
+          clientMap[clientId]["clientSeqNum"] = clientSeqNum
+      else:
+        clientMap[clientId] = {"clientSeqNum":clientSeqNum, "socket":socket.socket(), "maxExeSeq":-1}
+  return
 #Write to the chat log. If seqNum exists, update with message and state
 #If seqNum doesn't exist, add holes until we hit seqNum. Then update
 #Form is ( state, view, message )
 #States are 'A'->Accepted, 'L'->Learned, ''->Nothing
 def writeLog(seqNum, msg, view, state):
   while len(chatLog) <= seqNum:
-    chatLog.append(['',view, ''])
-    
+    chatLog.append(['',view, ''])    
   chatLog[seqNum] = [msg,view,state]
-
 
 # This should only receive PREPARE messages and ACCEPT messages
 # ACCEPT: Commit the value or reject based on if this leader is still your leader
