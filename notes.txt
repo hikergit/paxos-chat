@@ -23,6 +23,21 @@ Question:
 	7. Do all clients send to the same replica or all replicas
 	8. after getting followers, do we broadcast to everyone or just followers
 
+KV-Messages
+    Client to Master
+    1. clientID | G/P/D | key | val (optional) leave empty if not used 
+    2. clientID | A 
+
+    Master to Shard
+    1. Keep same as Paxos part 1. Chat message is whole message from Client
+
+    Shard to Master
+    1. seqNum | "Success/Error Message" | val (optional)
+
+    Master to Client
+    1. "Success"/Fail" | val
+
+
 Messages
     Client to Server
     1. Client sends header with info about msg size {clientId, clientSeqNum, msgSize, "$"}
