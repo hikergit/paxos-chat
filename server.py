@@ -8,13 +8,15 @@ import json
 from sets import Set
 from threading import Thread, Lock
 
+logPath = "./log/"
+logFile = ""
 CONFIG = 'config.txt'
 messageQ = Queue.Queue()
 
 viewNum = 0
 viewLock = Lock()
 server_host_port = []
-chatLog = [] #[view#, message(clientId, clientSEQ, message)]
+chatLog = [] #[view#, message(clientId, clientSEQ, message)], list of [msg,view,state]
 learning = {}
 serverID = 0
 numOfServers = 0
@@ -155,6 +157,36 @@ def view_change(message, conn):
 
   return
 
+def writeLog(cmd):
+  response = ""
+  return response
+  
+def executeCmd(chat):
+  global logFile
+  global chatLog
+  # chat is like "0|2|three"
+  chatList = chat.split('|')
+  clientId = int(chatList[0])
+  clientSeqNum = int(chatList[1])
+  cmd = chat[(len(chatList[0])+len(chatList[1])+2):]
+
+  target = open(logFile, 'a')
+  target.write(chat[(len(chatList[0])+len(chatList[1])+2):] + '\n')
+  target.close()
+  print "---- CHAT LOG----", chatLog 
+
+  if imPrimary:
+    try:
+      if clientMap[clientId][0] < clientSeqNum:
+        msg = str(clientSeqNum) + "$"
+        clientMap[clientId][1].sendall(msg)
+        clientMap[clientId][1].close()
+        print 'Message sent', msg
+    except:
+      print sys.exc_info()[0]
+      print "Didn't send back to the client. Message failed"
+
+
 #Receives message. Needs slot Y, view Z, and value X.  
 def learner(message):
   '''
@@ -195,37 +227,7 @@ def learner(message):
   #Check when the counter hits f+1 and deliver the message
   if learning[seqNum][view] == majority:
     writeLog(seqNum, chat, view, 'L')
-  
-    path = "./log/"
-    filename =  path + "serverLog" + sys.argv[2] + ".log"
-    if not os.path.exists(path):
-      try:
-        os.makedirs(path)
-      except OSError as exc: # Guard against race condition
-        if exc.errno != errno.EEXIST:
-          raise
-    target = open(filename, 'w')
-    target.truncate()   
-    for line in chatLog:
-      target.write(line[0] + '\n')
-    target.close()
-    print "---- CHAT LOG----", chatLog 
-   
-    chat = chat.split('|')
-    clientId = int(chat[0])
-    clientSeqNum = int(chat[1])
-
-    if imPrimary:
-      try:
-        if clientMap[clientId][0] < clientSeqNum:
-          msg = str(clientSeqNum) + "$"
-          clientMap[clientId][1].sendall(msg)
-          clientMap[clientId][1].close()
-          print 'Message sent', msg
-      except:
-        print sys.exc_info()[0]
-        print "Didn't send back to the client. Message failed"
- 
+    executeCmd(chat)
     if clientId in clientMap:
       if clientMap[clientId][0] < clientSeqNum:
         clientMap[clientId][0] = clientSeqNum
@@ -503,6 +505,19 @@ def start():
   if imPrimary:
     for n in range(numOfServers):
       followers[n] = []
+
+  global logPath
+  global logFile
+  logFile = logPath + "serverLog" + sys.argv[2] + ".log"
+  if not os.path.exists(logPath):
+    try:
+      os.makedirs(logPath)
+    except OSError as exc: # Guard against race condition
+      if exc.errno != errno.EEXIST:
+        raise
+  target = open(logFile, 'w')
+  target.truncate()   
+  target.close()
 
   service_thread = Thread(target=service, args=())
   service_thread.start()
