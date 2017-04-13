@@ -105,6 +105,9 @@ def proposeValue(clientMessage, conn):
   global nextSeqNum
   global clientMap
   global skipSeq
+  global imPrimary
+
+  assert imPrimary
 
   parse = clientMessage.split('|')
   clientId = int(parse[0])
@@ -113,9 +116,11 @@ def proposeValue(clientMessage, conn):
   #Check the clientID. If we have already decided this value, respond to the client
   # clientMap = {clientID: {"clientSeqNum":-1, "socket":socket.socket(), "executed":False}}
   if clientId in clientMap:
-    if clientSeq == clientMap[clientId]["clientSeqNum"] and clientMap[clientId]["executed"]:
-      debugPrint(['Sending back to client becuase already serviced'])
-      conn.sendall(str(clientSeq) + "$")
+    debugPrint(['[proposeValue] check clientMap:',clientMap])
+    if (clientSeq == clientMap[clientId]["clientSeqNum"]) and clientMap[clientId]["executed"]:
+      resp = str(clientSeq) + "$"
+      debugPrint(['[proposeValue] Sending back to client becuase already serviced:', resp])
+      conn.sendall(resp)
       conn.close()
       return
     elif clientSeq <= clientMap[clientId]["clientSeqNum"]:
@@ -216,7 +221,7 @@ def executeCmd():
             clientMap[clientId]["socket"].sendall(msg)
             clientMap[clientId]["socket"].close()
             clientMap[clientId]["executed"] = True
-            print 'Message sent', msg
+            debugPrint(['[executeCmd] Response sent back to client', msg])
           except:
             print sys.exc_info()[0]
             print "Didn't send back to the client. Message failed"
@@ -275,6 +280,7 @@ def learner(message):
       if clientId in clientMap:
         if clientMap[clientId]["clientSeqNum"] < clientSeqNum:
           clientMap[clientId]["clientSeqNum"] = clientSeqNum
+          clientMap[clientId]["executed"] = False
       else:
         clientMap[clientId] = {"clientSeqNum":clientSeqNum, "socket":None, "executed":False}
   return
