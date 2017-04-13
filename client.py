@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import socket
 import sys
 import time
@@ -16,6 +18,15 @@ seq_num = 0
 server_host_port = []
 primary = ("0.0.0.0", 0) # host, port
 MAX_SEQ_LEN = 10
+
+debugF = True
+def debugPrint(errmsg):
+  global debugF
+  if debugF:
+    errmsg = [str(e) for e in errmsg]
+    print("@@@ "+" ".join(errmsg))
+  return
+
 
 def broadcast_thread(host_port, header, msg, timeout):
   global responses
