@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys
+import json
 from base_server import BaseServer
 
 class KVworker:
@@ -52,7 +53,8 @@ class KVworker:
     we can send the length of key and value in the header
     '''
     response = ''
-    cmdList = cmd.split('|')
+    cmdDict = json.loads(cmd)
+    cmdList = [cmdDict['CLIENTID'], cmdDict['COMMAND'], cmdDict['KEY'], cmdDict['VAL']]
     if len(cmdList) < 3:
       response = 'E|Unknown command: '+cmd
     else:

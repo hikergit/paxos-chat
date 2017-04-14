@@ -3,6 +3,8 @@ import sys
 import time
 import Queue
 import thread
+import json
+from debugPrint import debugPrint
 from threading import Thread
 
 #Arguments to Client.
@@ -31,6 +33,7 @@ def clientRun():
 
   host,port = line.strip().split(' ')
   port = int(port)
+  debugPrint(["Host and Port",host,port])
 
   global master
   master = (host,port)
@@ -69,17 +72,22 @@ def clientRun():
         continue
  
     msg = {"CLIENTID": clientID, "COMMAND": command, "KEY": key, "VAL": val}
-    print "Message sent", msg
+    msg = json.dumps(msg)
+    header = str(len(msg)) + "$"
+    debugPrint(["[ClientRun]Header being sent", header])
+    debugPrint(["[ClientRun]Message being sent", msg])
 
     #Attempt to connect to master. Only fails if master is down
     try:
       s = socket.socket()
       s.connect(master)
       #Try to send chat message to master
-      s.sendall(json.dumps(msg))
+      s.sendall(header)
+      s.sendall(msg)
       #Attempt to recv response from master. No timeout, master shouldn't fail
       buf = ""
       resp = ""
+      debugPrint(["[ClientRun] Message was sent"])
       while buf != "$":
         resp += buf
         buf = s.recv(1)
@@ -96,10 +104,6 @@ def clientRun():
       continue
     except socket.timeout:
       print 'How the hell are we timing out. Look into this'
-      exit()
-    except:
-      print sys.exc_info()[0]
-      print 'Did not expect this exception. Exiting'
       exit()
     finally:
       s.close()
