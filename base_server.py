@@ -207,13 +207,14 @@ class BaseServer:
           if self.imPrimary:
             try:
               # clientMap = {clientID: {"clientSeqNum":-1, "socket":socket.socket(), "executed":False}}
-              msg = str(clientSeqNum) + '|' + response + "$"
+              reply = {'Master_seq_num': str(clientSeqNum), 'Response': response}
+              msg = json.dumps(reply) + "$"
               self.debugPrint(["[executeCmd]I'm primary, send Response:", msg])
               self.clientMap[clientId]["socket"].sendall(msg)
               self.clientMap[clientId]["socket"].close()
               self.clientMap[clientId]["executed"] = True
               self.debugPrint(['[executeCmd] Response sent back to client', msg])
-            except:
+            except socket.error:
               print sys.exc_info()[0]
               print "Didn't send back to the client. Message failed"
 
