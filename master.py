@@ -5,6 +5,9 @@ import Queue
 import thread
 from threading import Thread
 from metaShard import metaShard
+from hash_ring import hash_ring
+
+messageQ = Queue.Queue()
 
 def broadcast_thread(host_port, metaShard):
   s = socket.socket()
@@ -121,7 +124,7 @@ def shardSend(client_msg, metaShard):
     s.close()
 
 def shardComm(configFile):
-  #This thread is noew dedicated to communicating with shard in argument
+  #This thread is now dedicated to communicating with shard in argument
   #Run while loop over command thread. If an argument is added, send to shard. Repeat
 
 
@@ -138,6 +141,70 @@ def shardComm(configFile):
     chat = "6|" + chat
     shardSend(chat, meta)
 
+def receive():
+  '''
+  keep accepting connection
+  if it's from client
+    if I'm primary 
+      service command
+    if I'm not the primary
+      start view_change
+  '''
+  try:
+    host = socket.gethostbyname(socket.gethostname())
+    port = int(sys.argv[1].strip())
+    print 'Starting master on host, port', host, port
+    global messageQ
+    s = socket.socket()
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(('', port))
+
+    hashing = hash_ring()
+
+    while True:
+      s.listen(5)
+      conn, addr = s.accept()
+      buf = ""
+      msg = ""
+      while buf != "$":
+          msg += buf
+          buf = conn.recv(1, socket.MSG_WAITALL)
+      headers = msg.split('|')
+      clientID = headers[0]
+      command = headers[1]
+      key = headers[2]
+      print "clientID", clientID
+      print "command", command
+      print "key", key
+
+      if command == 'put':
+        val = headers[3]
+        print "Val", val
+      
+      messageQ.put(msg)
+  except KeyboardInterrupt:
+    print "Receiving stopped normally..."
+    print sys.exc_info()[0]
+  finally:
+    s.close()
+
+def start():
+  def usage():
+    print >> sys.stderr, "Usage: master.py <port>"
+    sys.exit(150)
+
+  if len(sys.argv) < 2:
+    usage()
+
+  shardFile = "shard1.txt"
+  #shard1_thread = Thread(target=shardComm, args=(shardFile,))
+  #shard1_thread.start()
+
+  receive_thread = Thread(target=receive, args=())
+  receive_thread.start()
+
+  #shard1_thread.join()
+  receive_thread.join()
 
 if __name__ == '__main__':
-  shardComm("shard1.txt")
+  start()
