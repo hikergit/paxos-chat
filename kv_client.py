@@ -21,7 +21,7 @@ def clientRun():
   if len(sys.argv) < 2:
     usage()
 
-  clientID = int(sys.argv[1].strip())
+  clientID = sys.argv[1].strip()
   host = socket.gethostname()
   if len(sys.argv) > 2:
     host = socket.gethostbyname(sys.argv[2].strip())
@@ -46,10 +46,10 @@ def clientRun():
     request = ""
 
     command = parse[0]
-    if command != "get" and command != "put" and command != "delete":
-      print "Unknown command. Must be: get, put, or delete"
+    if command != "G" and command != "P" and command != "D":
+      print "Unknown command. Must be: G (get), P (put), or D (delete)"
       continue
-    request = command + "|"
+    request =  command + "|"
 
     key = ""
     try:
@@ -59,8 +59,8 @@ def clientRun():
       print "This command needs a key argument. Format is 'get key', 'put key value', or 'delete key'"
       continue
 
-    if command == "put":
-      val = ""
+    val = ""
+    if command == "P":
       try:
         val = parse[2]
         request = request + "|" + val
@@ -68,7 +68,7 @@ def clientRun():
         print "Put requires two arguments, key and val. Format is 'put key value'"
         continue
  
-    msg = str(clientID) + "|" + request
+    msg = {"CLIENTID": clientID, "COMMAND": command, "KEY": key, "VAL": val}
     print "Message sent", msg
 
     #Attempt to connect to master. Only fails if master is down
@@ -76,7 +76,7 @@ def clientRun():
       s = socket.socket()
       s.connect(master)
       #Try to send chat message to master
-      s.sendall(msg)
+      s.sendall(json.dumps(msg))
       #Attempt to recv response from master. No timeout, master shouldn't fail
       buf = ""
       resp = ""
@@ -84,7 +84,7 @@ def clientRun():
         resp += buf
         buf = s.recv(1)
 
-      if command == "get":
+      if command == "G":
         status, val = resp.split('|')
         print status
         print "Value received:", val

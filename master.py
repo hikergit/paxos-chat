@@ -3,9 +3,11 @@ import sys
 import time
 import Queue
 import thread
+import json
 from threading import Thread
 from metaShard import metaShard
 from hash_ring import hash_ring
+from debugPrint import debugPrint
 
 messageQ = Queue.Queue()
 
@@ -26,7 +28,7 @@ def broadcast_thread(host_port, metaShard):
       resp += buf
       buf = s.recv(1, socket.MSG_WAITALL)
       if len(buf) == 0:
-        print 'port ', host_port[1], ' has a disconnect'
+        debugPrint(['port ', host_port[1], ' has a disconnect'])
         return
 
     #TODO: Should this be int??
@@ -131,15 +133,8 @@ def shardComm(configFile):
   meta = metaShard(configFile)
 
   while(1):
-    #Block on queue     msg = Queue.get()
-    try:
-      chat = raw_input("Enter text to chat (or Ctrl-D to quit): ")
-    except (EOFError, KeyboardInterrupt):
-      print 'Program terminated'
-      exit()
-
-    chat = "6|" + chat
-    shardSend(chat, meta)
+    msg = messageQ.get()
+    shardSend(msg, meta)
 
 def receive():
   '''
@@ -165,23 +160,17 @@ def receive():
       s.listen(5)
       conn, addr = s.accept()
       buf = ""
-      msg = ""
+      header = ""
       while buf != "$":
-          msg += buf
-          buf = conn.recv(1, socket.MSG_WAITALL)
-      headers = msg.split('|')
-      clientID = headers[0]
-      command = headers[1]
-      key = headers[2]
-      print "clientID", clientID
-      print "command", command
-      print "key", key
+        header += buf
+        buf = conn.recv(1, socket.MSG_WAITALL)
+      messageSize = int(header)
+      message = conn.recv(messageSize, socket.MSG_WAITALL)
 
-      if command == 'put':
-        val = headers[3]
-        print "Val", val
-      
-      messageQ.put(msg)
+      request = json.loads(message)
+      debugPrint([request])
+
+      messageQ.put(request)
   except KeyboardInterrupt:
     print "Receiving stopped normally..."
     print sys.exc_info()[0]
