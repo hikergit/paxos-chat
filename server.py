@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import socket
 import sys
 import thread
@@ -13,21 +15,31 @@ logFile = ""
 CONFIG = 'config.txt'
 messageQ = Queue.Queue()
 
+debugF = True
 viewNum = 0
 viewLock = Lock()
 server_host_port = []
-chatLog = [] #[view#, message(clientId, clientSEQ, message)], list of [msg,view,state]
+chatLog = [] #[view#, message(clientId, clientSEQ, message)], list of [msg,view,state], state is '' for hole
 learning = {}
 serverID = 0
 numOfServers = 0
 majority = 0
 imPrimary = False
 nextSeqNum = 0
+nextExeSeq = 0 # next sequence number to be executed
 followers = {}
 clientMap = {}  #Dictionary holds clients as keys. Values are [seqNum, socket]. SeqNum is highest seqnum we have sent back to client
+# clientMap = {clientID: {"clientSeqNum":-1, "socket":socket.socket(), "executed":False}}
 primaryReqs = []
 maxLog = 0
 skipSeq = -1
+
+def debugPrint(errmsg):
+  global debugF
+  if debugF:
+    errmsg = [str(e) for e in errmsg]
+    print("@@@ "+" ".join(errmsg))
+  return
 
 def receive():
   '''
@@ -56,7 +68,7 @@ def receive():
       messageQ.put((c, viewNum))
       viewLock.release()
   except KeyboardInterrupt:
-    print "Receiving stopped normally..."
+    debugPrint(["Receiving stopped normally..."])
     print sys.exc_info()[0]
   finally:
     s.close()
@@ -81,7 +93,7 @@ def sendMsg(header, msg, host_port):
 
   except:
     print sys.exc_info()[0]
-    print 'Could not connect to ', host_port
+    debugPrint(['Could not connect to ', host_port])
 
   s.close()
  
@@ -92,36 +104,38 @@ def proposeValue(clientMessage, conn):
   global nextSeqNum
   global clientMap
   global skipSeq
+  global imPrimary
+
+  assert imPrimary
 
   parse = clientMessage.split('|')
   clientId = int(parse[0])
   clientSeq = int(parse[1])
 
   #Check the clientID. If we have already decided this value, respond to the client
+  # clientMap = {clientID: {"clientSeqNum":-1, "socket":socket.socket(), "executed":False}}
   if clientId in clientMap:
-    if clientMap[clientId][0] == clientSeq:
-      print 'Sending back to client becuase already serviced'
-      conn.sendall(str(clientSeq) + "$")
+    debugPrint(['[proposeValue] check clientMap:',clientMap])
+    if (clientSeq == clientMap[clientId]["clientSeqNum"]) and clientMap[clientId]["executed"]:
+      resp = str(clientSeq) + "$"
+      debugPrint(['[proposeValue] Sending back to client becuase already serviced:', resp])
+      conn.sendall(resp)
       conn.close()
       return
-    elif clientMap[clientId][0] > clientSeq:
+    elif clientSeq <= clientMap[clientId]["clientSeqNum"]:
+      debugPrint(['[proposeValue] clientSeq already learned, ignore', clientMessage])
       #Ignore
       return
-
+  debugPrint(['[proposeValue] clientSeq larger than max clientSeqNum, propose value', clientMessage])
   message = str(viewNum) + '|' + str(nextSeqNum) + '|' + clientMessage
   nextSeqNum += 1
   if nextSeqNum == skipSeq:
     nextSeqNum += 1
   header  = "P|" + str(len(message)) + '$'
   broadcast(header, message)
- 
   #Save socket
-  if clientId in clientMap:
-    print '[Propose Value] Client socket updated in clientMap'
-    clientMap[clientId][1] = conn
-  else:
-    print '[Propose Value] Saved client socket to clientMap'
-    clientMap[clientId] = [-1, conn]
+  updateClientSocket(clientId, conn)
+  return
 
 def view_change(message, conn):
   '''
@@ -143,7 +157,7 @@ def view_change(message, conn):
   viewLock.release()
 
   if viewNum % numOfServers == serverID:
-    print 'I am new primary'
+    debugPrint(['[view_change]I am new primary'])
     imPrimary = True
 
     primaryReqs.append([message, conn])
@@ -153,39 +167,63 @@ def view_change(message, conn):
     broadcast(header, msg)
     
   else:
+    debugPrint(['[view_change]new view is'+str(viewNum)])
     imPrimary = False
     conn.close()
 
   return
 
-def writeLog(cmd):
-  response = ""
-  return response
-  
-def executeCmd(chat):
+
+class default_worker:
+  def workon(self, cmd):
+    return ''
+
+def toLog(cmd):
   global logFile
   global chatLog
-  # chat is like "0|2|three"
-  chatList = chat.split('|')
-  clientId = int(chatList[0])
-  clientSeqNum = int(chatList[1])
-  cmd = chat[(len(chatList[0])+len(chatList[1])+2):]
-
   target = open(logFile, 'a')
-  target.write(chat[(len(chatList[0])+len(chatList[1])+2):] + '\n')
+  target.write(cmd + '\n')
   target.close()
-  print "---- CHAT LOG----", chatLog 
-
-  if imPrimary:
-    try:
-      if clientMap[clientId][0] < clientSeqNum:
-        msg = str(clientSeqNum) + "$"
-        clientMap[clientId][1].sendall(msg)
-        clientMap[clientId][1].close()
-        print 'Message sent', msg
-    except:
-      print sys.exc_info()[0]
-      print "Didn't send back to the client. Message failed"
+  print "---- CHAT LOG----"
+  print chatLog 
+  return
+  
+def executeCmd():
+  global nextExeSeq
+  global chatLog
+  global imPrimary
+  debugPrint(["nextExeNum, len(chatLog)",nextExeSeq, len(chatLog)])
+  for seqNum in range(nextExeSeq, len(chatLog)):
+    if chatLog[seqNum][2] == '':
+      # it's a hole, stop here
+      debugPrint(['[executeCmd] stop because of hole'])
+      return
+    else:
+      nextExeSeq += 1
+      chat = chatLog[seqNum][0]
+      # chat is like "0|2|three"
+      chatList = chat.split('|')
+      clientId = int(chatList[0])
+      clientSeqNum = int(chatList[1])
+      cmd = chat[(len(chatList[0])+len(chatList[1])+2):]
+      debugPrint(['[executeCmd] executing', cmd])
+      toLog(cmd)
+      if clientId != -1:
+        # if NOOP, just skip, otherwise run this
+        worker = default_worker()
+        response = worker.workon(cmd)
+        if imPrimary:
+          try:
+            # clientMap = {clientID: {"clientSeqNum":-1, "socket":socket.socket(), "executed":False}}
+            msg = str(clientSeqNum) + response + "$"
+            debugPrint(["[executeCmd]I'm primary, send Response:", msg])
+            clientMap[clientId]["socket"].sendall(msg)
+            clientMap[clientId]["socket"].close()
+            clientMap[clientId]["executed"] = True
+            debugPrint(['[executeCmd] Response sent back to client', msg])
+          except:
+            print sys.exc_info()[0]
+            print "Didn't send back to the client. Message failed"
 
 
 #Receives message. Needs slot Y, view Z, and value X.  
@@ -227,26 +265,34 @@ def learner(message):
 
   #Check when the counter hits f+1 and deliver the message
   if learning[seqNum][view] == majority:
+    # write to log and execute command
     writeLog(seqNum, chat, view, 'L')
-    executeCmd(chat)
-    if clientId in clientMap:
-      if clientMap[clientId][0] < clientSeqNum:
-        clientMap[clientId][0] = clientSeqNum
-    else:
-      clientMap[clientId] = [clientSeqNum, socket.socket()]
-
-    return
-
+    executeCmd()
+    debugPrint(["=======finished execmd"])
+    #whenever we add a new log we call executeCmd
+    chatList = chat.split('|')
+    clientId = int(chatList[0])
+    if clientId != -1:
+      # if NOOP, just skip, otherwise run this
+      # clientMap = {clientID: {"clientSeqNum":-1, "socket":socket.socket(), "executed":Flase}}
+      clientSeqNum = int(chatList[1])
+      if clientId in clientMap:
+        if clientMap[clientId]["clientSeqNum"] < clientSeqNum:
+          clientMap[clientId]["clientSeqNum"] = clientSeqNum
+          clientMap[clientId]["executed"] = False
+      else:
+        clientMap[clientId] = {"clientSeqNum":clientSeqNum, "socket":None, "executed":False}
+  return
 #Write to the chat log. If seqNum exists, update with message and state
 #If seqNum doesn't exist, add holes until we hit seqNum. Then update
 #Form is ( state, view, message )
 #States are 'A'->Accepted, 'L'->Learned, ''->Nothing
 def writeLog(seqNum, msg, view, state):
+  global chatLog
   while len(chatLog) <= seqNum:
-    chatLog.append(['',view, ''])
-    
+    chatLog.append(['',view, ''])    
   chatLog[seqNum] = [msg,view,state]
-
+  debugPrint(["=======finished write log: ", chatLog])
 
 # This should only receive PREPARE messages and ACCEPT messages
 # ACCEPT: Commit the value or reject based on if this leader is still your leader
@@ -391,6 +437,16 @@ def service():
   except KeyboardInterrupt:
     print "Service stopped normally..."
 
+def updateClientSocket(clientId, conn):
+  global clientMap
+  if clientId in clientMap:
+    debugPrint(['[updateClientSocket] Client socket updated in clientMap'])
+    clientMap[clientId]["socket"] = conn
+  else:
+    debugPrint(['[updateClientSocket] Saved client socket to clientMap'])
+    clientMap[clientId] = {"clientSeqNum":-1, "socket":conn, "executed":False}
+  return
+
 def processRequest(msg):
   # keep a local queue
   global majority
@@ -406,8 +462,13 @@ def processRequest(msg):
   opcode = header[0]
   messageSize = int(header[1])
   message = conn.recv(messageSize, socket.MSG_WAITALL)
+  debugPrint(['[processRequest] message received:', message])
  
   if opcode is "C":
+    # update client socket here
+    parse = message.split('|', 1)
+    clientId = int(parse[0])
+    updateClientSocket(clientId, conn)
     if imPrimary:
 
       #If primary has majority, propose client's request
@@ -447,6 +508,7 @@ def processRequest(msg):
   else:
     print "Unrecognized opcode ", opcode, message,
     exit()
+  return
 
   '''
   clientID = int(header[0])

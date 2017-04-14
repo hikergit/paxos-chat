@@ -77,10 +77,13 @@ def broadcast(metaShard):
 def shardSend(client_msg, metaShard):
 
   clientID = client_msg.split('|')[0]
-  shardMsg = client_msg.split('|')[1:]
 
   #Hard code first arg to 0. "Client" is always Master 
-  msg = str(0) + "|" +  str(metaShard.seq_num) + "|" + str(shardMsg)
+  masterID = "0"
+  if len(sys.argv) > 1:
+    masterID = sys.argv[1].strip()
+
+  msg = masterID + "|" +  str(metaShard.seq_num) + "|" + str(client_msg)
   header = "C|" + str(len(msg)) + "$"
 
   metaShard.clientID = clientID
@@ -96,17 +99,25 @@ def shardSend(client_msg, metaShard):
     s.sendall(msg)
     #Attempt to recv response from primary. If times out, broadcast to all replicas
     buf = ""
-    resp = str(metaShard.seq_num-1) # make sure they are not equal
-    while int(resp) != metaShard.seq_num:
-      resp = ""
+    resp = ""
+    recv_seq_num = -1
+    shard_msg = ""
+    while recv_seq_num != metaShard.seq_num:
       buf = ""
+      resp = ""
       while buf != "$":
         resp += buf
         buf = s.recv(1)
 
-      #Tag response with clientID and put in replies queue
-      reply = metaShard.clientID + "|" + resp
-      print reply
+      #Parse message from shard. Format is SeqNum | E/S | Val/Error
+      reply = json.loads(resp)
+      recv_seq_num = int(reply['Master_seq_num'])
+      shard_msg = reply['Response']
+
+    print shard_msg
+    #Tag response with clientID and put in replies queue
+    #Use clientID
+    #print resp
    
 
     metaShard.seq_num += 1
@@ -118,10 +129,6 @@ def shardSend(client_msg, metaShard):
     print 'Primary timed out, now broadcasting'
     broadcast(metaShard) 
     return
-  except:
-    print sys.exc_info()[0]
-    print 'Did not expect this exception. Exiting'
-    exit()
   finally:
     s.close()
 
@@ -130,7 +137,7 @@ def shardComm(configFile):
   #Run while loop over command thread. If an argument is added, send to shard. Repeat
 
 
-  meta = metaShard(configFile)
+  meta = metaShard(configFile, )
 
   while(1):
     msg = messageQ.get()

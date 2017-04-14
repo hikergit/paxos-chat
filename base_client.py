@@ -168,15 +168,13 @@ def clientRun():
       #Attempt to recv response from primary. If times out, broadcast to all replicas
       buf = ""
       resp = str(seq_num-1) # make sure they are not equal
-      while int(resp) != seq_num:
-        resp = ""
-        buf = ""
-        while buf != "$":
-          resp += buf
-          buf = s.recv(1)
-        print resp
-        print 'Host,Port', primary
-      # now resp == seq_num  
+      resp = ""
+      buf = ""
+      while buf != "$":
+        resp += buf
+        buf = s.recv(1)
+      print resp
+      print 'Host,Port', primary
       seq_num += 1
     except socket.error:
       print 'Primary not reachable, now broadcasting'
@@ -186,10 +184,6 @@ def clientRun():
       print 'Primary timed out, now broadcasting'
       broadcast(header, msg) 
       continue
-    except:
-      print sys.exc_info()[0]
-      print 'Did not expect this exception. Exiting'
-      exit()
     finally:
       s.close()
 

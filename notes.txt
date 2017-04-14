@@ -29,13 +29,19 @@ KV-Messages
     2. clientID | A 
 
     Master to Shard
+    expected input for base_client.py
+    clientID | G/P/D | key | val (optional) leave empty if not used
     1. Keep same as Paxos part 1. Chat message is whole message from Client
 
     Shard to Master
-    1. seqNum | "Success/Error Message" | val (optional)
+    1. seqNum | "S(for Success)/E(for Error Message)" | val/error message (optional)
+    JSON Structure: {"Master_seq_num": blah, "Response": blah}
 
     Master to Client
     1. "Success"/Fail" | val
+
+
+
 
 
 Messages
