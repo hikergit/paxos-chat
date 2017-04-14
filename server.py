@@ -16,7 +16,6 @@ CONFIG = 'config.txt'
 messageQ = Queue.Queue()
 
 debugF = True
-runShard = False
 viewNum = 0
 viewLock = Lock()
 server_host_port = []
@@ -174,9 +173,10 @@ def view_change(message, conn):
 
   return
 
-def toDict(cmd):
-  # run command as dictionary in shard
-  return "|TODO|shard"
+
+class default_worker:
+  def workon(self, cmd):
+    return ''
 
 def toLog(cmd):
   global logFile
@@ -186,13 +186,12 @@ def toLog(cmd):
   target.close()
   print "---- CHAT LOG----"
   print chatLog 
-  return ""
+  return
   
 def executeCmd():
   global nextExeSeq
   global chatLog
   global imPrimary
-  global runShard
   debugPrint(["nextExeNum, len(chatLog)",nextExeSeq, len(chatLog)])
   for seqNum in range(nextExeSeq, len(chatLog)):
     if chatLog[seqNum][2] == '':
@@ -208,11 +207,11 @@ def executeCmd():
       clientSeqNum = int(chatList[1])
       cmd = chat[(len(chatList[0])+len(chatList[1])+2):]
       debugPrint(['[executeCmd] executing', cmd])
-      response = toLog(cmd)
+      toLog(cmd)
       if clientId != -1:
         # if NOOP, just skip, otherwise run this
-        if runShard:
-          response = toDict(cmd)
+        worker = default_worker()
+        response = worker.workon(cmd)
         if imPrimary:
           try:
             # clientMap = {clientID: {"clientSeqNum":-1, "socket":socket.socket(), "executed":False}}
