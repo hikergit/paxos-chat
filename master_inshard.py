@@ -13,6 +13,9 @@ class ShardMaster:
   def __init__(self):
     self.messageQ = Queue.Queue()
 
+    #Clients = {ClientID: socket object}
+    self.clients = {}
+
   def broadcast_thread(self, host_port, metaShard):
     s = socket.socket()
     s.settimeout(metaShard.timeout)
@@ -81,8 +84,8 @@ class ShardMaster:
 
     #Hard code first arg to 0. "Client" is always Master 
     masterID = "0"
-    if len(sys.argv) > 1:
-      masterID = sys.argv[1].strip()
+    if len(sys.argv) > 2:
+      masterID = sys.argv[2].strip()
 
     msg = masterID + "|" +  str(metaShard.seq_num) + "|" + json.dumps(client_msg)
     header = "C|" + str(len(msg)) + "$"
@@ -115,9 +118,14 @@ class ShardMaster:
         recv_seq_num = int(reply['Master_seq_num'])
         shard_msg = reply['Response']
 
-      print shard_msg
+      debugPrint(["[ShardSend] Sending shardMsg", shard_msg])
       #Tag response with clientID and put in replies queue
-      #Use clientID
+      resp_socket = self.clients[clientID]
+      header = str(len(shard_msg)) + "$"
+      resp_socket.sendall(header)
+      resp_socket.sendall(shard_msg)
+      resp_socket.close()
+      
       #print resp
       metaShard.seq_num += 1
     except socket.error:
@@ -174,7 +182,7 @@ class ShardMaster:
         debugPrint([request])
 
         self.messageQ.put(request)
-
+        self.clients[request['CLIENTID']] = conn
 
     except KeyboardInterrupt:
       print "Receiving stopped normally..."
@@ -184,7 +192,7 @@ class ShardMaster:
 
   def start(self):
     def usage():
-      print >> sys.stderr, "Usage: master.py <port>"
+      print >> sys.stderr, "Usage: master.py <port> [masterID]"
       sys.exit(150)
 
     if len(sys.argv) < 2:

@@ -86,18 +86,14 @@ def clientRun():
       s.sendall(msg)
       #Attempt to recv response from master. No timeout, master shouldn't fail
       buf = ""
-      resp = ""
+      header = ""
       debugPrint(["[ClientRun] Message was sent"])
       while buf != "$":
-        resp += buf
+        header += buf
         buf = s.recv(1)
 
-      if command == "G":
-        status, val = resp.split('|')
-        print status
-        print "Value received:", val
-      else:
-        print resp
+      reply = s.recv(int(header), socket.MSG_WAITALL)
+      print "Reply: ", reply
     except socket.error:
       print 'Master not reachable, check master status'
       exit()
