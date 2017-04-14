@@ -35,9 +35,13 @@ KV-Messages
 
     Shard to Master
     1. seqNum | "S(for Success)/E(for Error Message)" | val/error message (optional)
+    JSON Structure: {"Master_seq_num": blah, "Response": blah}
 
     Master to Client
     1. "Success"/Fail" | val
+
+
+
 
 
 Messages
