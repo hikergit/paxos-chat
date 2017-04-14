@@ -15,6 +15,15 @@ class default_worker:
     return ''
 
 class BaseServer:
+  '''
+  this class is used for start a server
+  it takes a worker_class argument in the constructor
+  the worker_class should have a function called workon
+  workon takes a cmd string as input
+  do whatever he needs to execute the command
+  and return a string as result
+  the server will append the result to the end of response to the client
+  '''
   logPath = "./log/"
   logFile = ""
   CONFIG = 'config.txt'
