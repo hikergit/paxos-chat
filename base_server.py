@@ -16,7 +16,7 @@ class default_worker:
 
 class BaseServer:
   '''
-  this class is used for start a server
+  this class is used for starting a server
   it takes a worker_class argument in the constructor
   the worker_class should have a function called workon
   workon takes a cmd string as input
@@ -207,7 +207,7 @@ class BaseServer:
           if self.imPrimary:
             try:
               # clientMap = {clientID: {"clientSeqNum":-1, "socket":socket.socket(), "executed":False}}
-              msg = str(clientSeqNum) + response + "$"
+              msg = str(clientSeqNum) + '|' + response + "$"
               self.debugPrint(["[executeCmd]I'm primary, send Response:", msg])
               self.clientMap[clientId]["socket"].sendall(msg)
               self.clientMap[clientId]["socket"].close()
