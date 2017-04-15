@@ -3,16 +3,18 @@
 #Arguments
 #1. N - number of servers
 #2. Starting port number for replicas. Increments by one for each replica
-#3. Optional argument. This seq number will be skipped in execution
+#3. Shard number
+#4. Optional argument. This seq number will be skipped in execution
 
 n="$1"
 id=0
 port="$2"
+shard="$3"
 
-if [ -z "$3" ]; then skip=-1; else skip="$3"; fi
-server="server_inshard.py"
-OUT='config.txt'
-if [ $( ls $OUT ) ]; then rm $OUT; fi
+if [ -z "$4" ]; then skip=-1; else skip="$4"; fi
+server="shardServer.py"
+OUT='shard_config'$shard'.txt'
+if [ -f $OUT ]; then rm $OUT; fi
 
 # Write config file
 echo $skip >> $OUT 
@@ -30,7 +32,7 @@ id=0
 port=$2
 while [ $id -lt $n ]; 
 do
-  ./$server $port $id &
+  gnome-terminal -e "./$server $port $id $OUT"
   let port=port+1
   let id=id+1
 

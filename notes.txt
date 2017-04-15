@@ -40,7 +40,9 @@ KV-Messages
     Master to Client
     1. "Success"/Fail" | val
 
-
+Scripts:
+    launchMaster :  <numShards> <numReplicasPerShard> <startingPort> <skipNumber>
+    launchShard:   Invoked by launchMaster. Use launchMaster
 
 
 

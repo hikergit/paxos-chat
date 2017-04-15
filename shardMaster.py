@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import socket
 import sys
 import time
@@ -37,8 +39,11 @@ class ShardMaster:
           return
 
       #TODO: Should this be int??
-      resp_pair = (int(resp), host_port) 
-      metaShard.responses.put(resp_pair) 
+      reply = json.loads(resp)
+      resp_pair = (reply, host_port) 
+      if int(reply['Master_seq_num']) == metaShard.seq_num:
+        metaShard.responses.put(resp_pair) 
+
       print "Ending thread. Resp received [", resp, "]"
 
     except socket.error:
@@ -69,14 +74,25 @@ class ShardMaster:
           print 'Got more than one response from broadcast. Alert'
         while not metaShard.responses.empty():
           resp_pair = metaShard.responses.get()
-          print "Can not connect to primary, try this ", resp_pair
-          reply = metaShard.clientID + "|" + resp_pair[0]
-          print reply
+          print "Can not connect to primary, try this ", resp_pair[1]
+          metaShard.primary = resp_pair[1]
           
-          if resp_pair[0] == metaShard.seq_num:
-            metaShard.seq_num += 1
-            metaShard.primary = resp_pair[1]
-            return
+          reply = resp_pair[0]
+          shard_msg = reply['Response']
+
+          self.clientSend(metaShard, shard_msg)
+          return
+
+  def clientSend(self, metaShard, reply):
+    debugPrint(["[ShardSend] Sending shardMsg", reply])
+
+    #Tag response with clientID and put in replies queue
+    resp_socket = self.clients[metaShard.clientID]
+    header = str(len(reply)) + "$"
+    resp_socket.sendall(header)
+    resp_socket.sendall(reply)
+    resp_socket.close()
+    metaShard.seq_num += 1
 
   def shardSend(self, client_msg, metaShard):
 
@@ -118,16 +134,8 @@ class ShardMaster:
         recv_seq_num = int(reply['Master_seq_num'])
         shard_msg = reply['Response']
 
-      debugPrint(["[ShardSend] Sending shardMsg", shard_msg])
-      #Tag response with clientID and put in replies queue
-      resp_socket = self.clients[clientID]
-      header = str(len(shard_msg)) + "$"
-      resp_socket.sendall(header)
-      resp_socket.sendall(shard_msg)
-      resp_socket.close()
+      self.clientSend(metaShard, shard_msg)
       
-      #print resp
-      metaShard.seq_num += 1
     except socket.error:
       print 'Primary not reachable, now broadcasting'
       self.broadcast(metaShard) 
@@ -198,7 +206,7 @@ class ShardMaster:
     if len(sys.argv) < 2:
       usage()
 
-    shardFile = "config.txt"
+    shardFile = "shard_config0.txt"
     shard1_thread = Thread(target=self.shardComm, args=(shardFile,))
     shard1_thread.start()
 

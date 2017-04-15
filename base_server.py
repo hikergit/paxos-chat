@@ -510,7 +510,8 @@ class BaseServer:
       for n in range(self.numOfServers):
         self.followers[n] = []
 
-    self.logFile = self.logPath + "serverLog" + str(self.serverID) + ".log"
+    shardNum = self.CONFIG.split('.')[0][-1]
+    self.logFile = self.logPath + "serverLog_shard_" + shardNum + '_' + str(self.serverID) + ".log"
     if not os.path.exists(self.logPath):
       try:
         os.makedirs(self.logPath)
