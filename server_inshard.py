@@ -67,15 +67,16 @@ class KVworker:
 
 def startKVServer():
   def usage():
-    print >> sys.stderr, "Usage: server.py <port> <ID>"
+    print >> sys.stderr, "Usage: server.py <port> <ID> <config file name>"
     sys.exit(150)
 
-  if len(sys.argv) < 3:
+  if len(sys.argv) < 4:
     usage()
 
   serverID = int(sys.argv[2])
   port = int(sys.argv[1].strip())
-  kvserver = BaseServer(port, serverID, KVworker)
+  config_file = sys.argv[3].strip()
+  kvserver = BaseServer(port, serverID, KVworker, config_file)
   kvserver.startServer()
   return
 

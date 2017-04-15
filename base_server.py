@@ -26,7 +26,6 @@ class BaseServer:
   '''
   logPath = "./log/"
   logFile = ""
-  CONFIG = 'config.txt'
   messageQ = Queue.Queue()
 
   debugF = True
@@ -50,11 +49,12 @@ class BaseServer:
   myport = 0
   myhost = ''
 
-  def __init__(self, port, serverid, worker_class = default_worker):
+  def __init__(self, port, serverid, worker_class = default_worker, config_file = 'config.txt'):
     self.myport = port
     self.myhost = socket.gethostbyname(socket.gethostname())
     self.worker = worker_class()
     self.serverID = serverid
+    self.CONFIG = config_file
 
 
   def debugPrint(self, errmsg):
@@ -543,6 +543,6 @@ if __name__ == "__main__":
 
   serverID = int(sys.argv[2])
   port = int(sys.argv[1].strip())
-  server = BaseServer(port, serverID, default_worker)
+  server = BaseServer(port, serverID, default_worker, None)
   server.startServer()
 
