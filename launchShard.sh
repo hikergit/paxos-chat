@@ -13,7 +13,7 @@ shard="$3"
 
 if [ -z "$4" ]; then skip=-1; else skip="$4"; fi
 server="shardServer.py"
-OUT='shard_config'$shard'.txt'
+OUT='shard_config_'$shard'.txt'
 if [ -f $OUT ]; then rm $OUT; fi
 
 # Write config file

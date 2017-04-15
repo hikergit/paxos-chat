@@ -4,9 +4,12 @@ import hashlib
 
 class hash_ring(object):
 
-  def __init__(self):
+  def __init__(self, numShards=1):
     self.num_shards = 1
-    self.shards = [{'start':0,'end':1,'id':1}]
+    self.shards = [{'start':0,'end':1,'id':0}]
+
+    for shard in range(numShards-1):
+      self.add_shard()
 
   def add_shard(self):
     #Walk through shards. Find shard with longest domain
@@ -26,7 +29,7 @@ class hash_ring(object):
     mid = s['start'] + mid
 
     #Create new shard. Starts at mid point
-    new_shard = {'start':mid, 'end':s['end'], 'id':self.num_shards}
+    new_shard = {'start':mid, 'end':s['end'], 'id':self.num_shards-1}
 
     #Update old shard's end to be at mid
     old_shard = self.shards[pos]
@@ -47,20 +50,15 @@ class hash_ring(object):
     return (int(hashlib.md5(key).hexdigest(),16) % 1000000) / 1000000.0
 
 
-'''
+
 #Example of using CH
-
-ch = hash_ring()
-
-old_shard  = ch.add_shard()
-old_shard  = ch.add_shard()
-old_shard  = ch.add_shard()
-old_shard  = ch.add_shard()
+'''
+ch = hash_ring(2)
 
 print ch.num_shards
 
-shard_num = ch.get_shard(10)
-shard_num =  ch.get_shard('hello world again')
-shard_num = ch.get_shard('beers')
-shard_num = ch.get_shard(10)
+print ch.get_shard(10)
+print ch.get_shard('hello world again')
+print ch.get_shard(2)
+print ch.get_shard(10)
 '''

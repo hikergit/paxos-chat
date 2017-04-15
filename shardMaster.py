@@ -12,11 +12,14 @@ from hash_ring import hash_ring
 from debugPrint import debugPrint
 
 class ShardMaster:
-  def __init__(self):
-    self.messageQ = Queue.Queue()
-
+  def __init__(self, port, numShards):
     #Clients = {ClientID: socket object}
     self.clients = {}
+    self.message_queues = []
+    
+    self.port = port
+    self.numShards = numShards
+    self.hashing = hash_ring(numShards)
 
   def broadcast_thread(self, host_port, metaShard):
     s = socket.socket()
@@ -100,8 +103,6 @@ class ShardMaster:
 
     #Hard code first arg to 0. "Client" is always Master 
     masterID = "0"
-    if len(sys.argv) > 2:
-      masterID = sys.argv[2].strip()
 
     msg = masterID + "|" +  str(metaShard.seq_num) + "|" + json.dumps(client_msg)
     header = "C|" + str(len(msg)) + "$"
@@ -147,12 +148,14 @@ class ShardMaster:
     finally:
       s.close()
 
-  def shardComm(self, configFile):
+  def shardComm(self, shard):
     #This thread is now dedicated to communicating with shard in argument
     #Run while loop over command thread. If an argument is added, send to shard. Repeat
+    shard_config = 'shard_config_'
+    configFile = shard_config + str(shard) + '.txt'
     meta = metaShard(configFile, )
     while(1):
-      msg = self.messageQ.get()
+      msg = self.message_queues[shard].get()
       self.shardSend(msg, meta)
 
   def receive(self):
@@ -166,13 +169,10 @@ class ShardMaster:
     '''
     try:
       host = socket.gethostbyname(socket.gethostname())
-      port = int(sys.argv[1].strip())
-      print 'Starting master on host, port', host, port
+      print 'Starting master on host, port', host, self.port
       s = socket.socket()
       s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-      s.bind(('', port))
-
-      hashing = hash_ring()
+      s.bind(('', self.port))
 
       while True:
         s.listen(5)
@@ -189,7 +189,9 @@ class ShardMaster:
         request = json.loads(message)
         debugPrint([request])
 
-        self.messageQ.put(request)
+        shard = self.hashing.get_shard(request['KEY'])
+        debugPrint(["[receive]Key maps to shard", shard])
+        self.message_queues[shard].put(request)
         self.clients[request['CLIENTID']] = conn
 
     except KeyboardInterrupt:
@@ -199,23 +201,27 @@ class ShardMaster:
       s.close()
 
   def start(self):
-    def usage():
-      print >> sys.stderr, "Usage: master.py <port> [masterID]"
-      sys.exit(150)
-
-    if len(sys.argv) < 2:
-      usage()
-
-    shardFile = "shard_config0.txt"
-    shard1_thread = Thread(target=self.shardComm, args=(shardFile,))
-    shard1_thread.start()
 
     receive_thread = Thread(target=self.receive, args=())
     receive_thread.start()
+   
+    for shard in range(self.numShards):
+      self.message_queues.append(Queue.Queue())
+      shard_thread = Thread(target=self.shardComm, args=(shard,))
+      shard_thread.start()
 
-    shard1_thread.join()
     receive_thread.join()
 
 if __name__ == '__main__':
-  master = ShardMaster()
+  def usage():
+    print >> sys.stderr, "Usage: master.py <port> <numShards>"
+    sys.exit(150)
+
+  if len(sys.argv) < 3:
+    usage()
+
+  port = int(sys.argv[1].strip())    
+  numShards = int(sys.argv[2].strip())
+
+  master = ShardMaster(port,numShards)
   master.start()
