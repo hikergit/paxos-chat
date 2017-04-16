@@ -23,6 +23,9 @@ class KVworker:
     else:
       return json.dumps({'R':'E', 'V':value})
 
+  def getAll(self, *unuse):
+    return genResp(True, self.myDict)
+    
   def getK(self, key):
     key = key[0]
     if key in self.myDict:
