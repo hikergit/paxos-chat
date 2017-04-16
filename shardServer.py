@@ -3,46 +3,50 @@
 import sys
 import json
 from base_server import BaseServer
+from debugPrint import debugPrint
 
 class KVworker:
   myDict = {}
 
   def __init__(self):
-    self.funcDict = {'G':self.getK, 'P':self.putKV, 'D':self.delK}
+    self.funcDict = {'G':self.getK, 
+                      'P':self.putKV, 
+                      'D':self.delK, 
+                      'A':self.getAll}
     self.successPrefix = 'S|'
     self.errorPrefix = 'E|'
     self.debugF = True
-
-  def debugPrint(self, errmsg):
-    if self.debugF:
-      errmsg = [str(e) for e in errmsg]
-      print("@@@ "+" ".join(errmsg))
-    return
+    
+  def genResp(self, success, value = ''):
+    if success:
+      return json.dumps({'R':'S', 'V':value})
+    else:
+      return json.dumps({'R':'E', 'V':value})
 
   def getK(self, key):
     key = key[0]
     if key in self.myDict:
-      self.debugPrint(['[getK]value get:', key, self.myDict[key]])
-      return self.successPrefix + self.myDict[key]
+      debugPrint(['[getK]value get:', key, self.myDict[key]])
+      return self.genResp(True, self.myDict[key])
     else:
-      self.debugPrint(['[getK]value not exist:', key])
-      return self.errorPrefix + 'Key not exist: ' + key
+      debugPrint(['[getK]value not exist:', key])
+      return self.genResp(False, 'Key not exist: ' + key)
 
   def putKV(self, keyVal):
     self.myDict[keyVal[0]] = keyVal[1]
-    self.debugPrint(['[putKV]value put:', keyVal[0], self.myDict[keyVal[0]]])
-    return self.successPrefix
+    debugPrint(['[putKV]value put:', keyVal[0], self.myDict[keyVal[0]]])
+    return self.genResp(True)
 
   def delK(self, key):
     key = key[0]
     if key in self.myDict:
       val = self.myDict.pop(key)
       # returs original value as val
-      self.debugPrint(['[delK]key deleted:', key])
-      return self.successPrefix + val
+      debugPrint(['[delK]key deleted:', key])
+      return self.genResp(True, val)
     else:
-      self.debugPrint(['[delK]Key not exist, delete failed', key])
-      return self.errorPrefix + 'Key not exist, delete failed:' + key
+      debugPrint(['[delK]Key not exist, delete failed', key])
+      return self.genResp(False, 'Key not exist, delete failed:' + key)
   
   def workon(self, cmd):
     '''
@@ -56,13 +60,13 @@ class KVworker:
     cmdDict = json.loads(cmd)
     cmdList = [cmdDict['CLIENTID'], cmdDict['COMMAND'], cmdDict['KEY'], cmdDict['VAL']]
     if len(cmdList) < 3:
-      response = 'E|Unknown command: '+cmd
+      response = self.genResp(False, 'Unknown command: '+cmd)
     else:
       if cmdList[1] in self.funcDict:
         response = self.funcDict[cmdList[1]](cmdList[2:])
       else:
-        response = 'E|Unknown command: '+cmd
-      self.debugPrint(['[workon] myDict', self.myDict])
+        response = self.genResp(False, 'Unknown command: '+cmd)
+      debugPrint(['[workon] myDict', self.myDict])
     return response
 
 def startKVServer():
