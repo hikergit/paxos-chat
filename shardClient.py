@@ -51,18 +51,19 @@ def clientRun():
     request = ""
 
     command = parse[0]
-    if command != "G" and command != "P" and command != "D":
-      print "Unknown command. Must be: G (get), P (put), or D (delete)"
+    if command != "G" and command != "P" and command != "D" and command != "A":
+      print "Unknown command. Must be: G (get), P (put), D (delete), or A (Add shard)"
       continue
     request =  command + "|"
 
     key = ""
-    try:
-      key = parse[1]
-      request = request + key
-    except:
-      print "This command needs a key argument. Format is 'get key', 'put key value', or 'delete key'"
-      continue
+    if command != "A":
+      try:
+        key = parse[1]
+        request = request + key
+      except:
+        print "This command needs a key argument. Format is 'get key', 'put key value', or 'delete key'"
+        continue
 
     val = ""
     if command == "P":

@@ -38,7 +38,7 @@ class hash_ring(object):
     self.shards.append(new_shard)
     return old_shard['id']
 
-  def get_shard(self, key):
+  def getShard(self, key):
     val = self._hash(str(key))
     print 'val', val
     for shard in self.shards:
@@ -57,8 +57,8 @@ ch = hash_ring(2)
 
 print ch.num_shards
 
-print ch.get_shard(10)
-print ch.get_shard('hello world again')
-print ch.get_shard(2)
-print ch.get_shard(10)
+print ch.getShard(10)
+print ch.getShard('hello world again')
+print ch.getShard(2)
+print ch.getShard(10)
 '''

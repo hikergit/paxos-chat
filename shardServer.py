@@ -24,7 +24,7 @@ class KVworker:
       return json.dumps({'R':'E', 'V':value})
 
   def getAll(self, *unuse):
-    return genResp(True, self.myDict)
+    return self.genResp(True, self.myDict)
     
   def getK(self, key):
     key = key[0]

@@ -20,6 +20,8 @@ class ShardMaster:
     self.port = port
     self.numShards = numShards
     self.hashing = hash_ring(numShards)
+    self.addShardResponse = Queue.Queue()
+    self.dummyID = -1
 
   def broadcast_thread(self, host_port, metaShard):
     s = socket.socket()
@@ -82,20 +84,26 @@ class ShardMaster:
           
           reply = resp_pair[0]
           shard_msg = reply['Response']
-
-          self.clientSend(metaShard, shard_msg)
+ 
+          metaShard.seq_num += 1
+          self.clientSend(metaShard.clientID, shard_msg)
           return
 
-  def clientSend(self, metaShard, reply):
-    debugPrint(["[ShardSend] Sending shardMsg", reply])
+  def clientSend(self, clientID, reply):
+    if clientID != self.dummyID:
 
-    #Tag response with clientID and put in replies queue
-    resp_socket = self.clients[metaShard.clientID]
-    header = str(len(reply)) + "$"
-    resp_socket.sendall(header)
-    resp_socket.sendall(reply)
-    resp_socket.close()
-    metaShard.seq_num += 1
+      debugPrint(["[ShardSend] Sending shardMsg", reply])
+
+      #Tag response with clientID and put in replies queue
+      resp_socket = self.clients[clientID]
+      header = str(len(reply)) + "$"
+      resp_socket.sendall(header)
+      resp_socket.sendall(reply)
+      resp_socket.close()
+    else:
+      debugPrint(["[ShardSend] Adding shardMsg to internal queue", reply])
+      self.addShardResponse.put(reply)
+    
 
   def shardSend(self, client_msg, metaShard):
 
@@ -134,8 +142,9 @@ class ShardMaster:
         reply = json.loads(resp)
         recv_seq_num = int(reply['Master_seq_num'])
         shard_msg = reply['Response']
-
-      self.clientSend(metaShard, shard_msg)
+      
+      metaShard.seq_num += 1
+      self.clientSend(metaShard.clientID, shard_msg)
       
     except socket.error:
       print 'Primary not reachable, now broadcasting'
@@ -157,6 +166,53 @@ class ShardMaster:
     while(1):
       msg = self.message_queues[shard].get()
       self.shardSend(msg, meta)
+
+  def add_shard(self, request):
+    #Start a new thread for communicating to the new shard 
+    self.message_queues.append(Queue.Queue())
+    self.numShards += 1
+    new_shard = self.numShards-1
+    shard_thread = Thread(target=self.shardComm, args=(new_shard,))
+    shard_thread.start()
+
+    #Save true clientID. Will need to respond to client after operation is done
+    #Need to modify clientID in message so that send thread doesn't respond to 
+    #client directly. 
+    client_id = request['CLIENTID']
+    request['CLIENTID'] = self.dummyID
+
+    old_shard = self.hashing.add_shard()
+
+    self.message_queues[old_shard].put(request)
+
+    #Wait on addShardResponse queue for dictionary from old shard
+    oldDict = json.loads(self.addShardResponse.get())['V']
+
+    #Go through dictionary of old shard. Eval each key. If maps to old shard, do nothing
+    #If key maps to new shard, must put key in new shard and delete key from old shard
+    msg_count = 0
+    for key,val in oldDict.iteritems():
+      key_shard = self.hashing.getShard(key)
+      if key_shard == new_shard:
+        put_msg = {"CLIENTID": self.dummyID, "COMMAND": "P", "KEY": key, "VAL": val}
+        self.message_queues[new_shard].put(put_msg)
+
+        del_msg = {"CLIENTID": self.dummyID, "COMMAND": "D", "KEY": key, "VAL": val}
+        self.message_queues[old_shard].put(del_msg)
+        msg_count += 2
+
+    while msg_count > 0:
+      reply = json.loads(self.addShardResponse.get())
+      if reply["R"] == 'E':
+        print "Error in trying to add Shard. Msg: ", reply["V"]
+        print "Exiting"
+        exit()
+      msg_count -= 1
+     
+    #Last step is sending ack to client that add_shard completed
+    debugPrint(["[addShard] Shard transfer completed"])
+    client_msg = {"R": "S", "V": "Total shard number " + str(self.numShards)}
+    self.clientSend(client_id, json.dumps(client_msg))
 
   def receive(self):
     '''
@@ -189,10 +245,17 @@ class ShardMaster:
         request = json.loads(message)
         debugPrint([request])
 
-        shard = self.hashing.get_shard(request['KEY'])
-        debugPrint(["[receive]Key maps to shard", shard])
-        self.message_queues[shard].put(request)
         self.clients[request['CLIENTID']] = conn
+       
+       #If addShard command, stop and perform add
+        if request['COMMAND'] == 'A':
+          self.add_shard(request)
+
+        #Otherwise, decrypt key and pass command to the right shard thread
+        else:
+          shard = self.hashing.getShard(request['KEY'])
+          debugPrint(["[receive]Key maps to shard", shard])
+          self.message_queues[shard].put(request)
 
     except KeyboardInterrupt:
       print "Receiving stopped normally..."
