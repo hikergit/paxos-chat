@@ -7,6 +7,25 @@ Sharded:
     6. Implement consistent hashing with circular ring.  (DONE)
     7. When addShard request comes, wait for total unfinished requests number decrease to 0. Stop receiving new requests. Get value from old shard, put into new shard, delete from old shard.
 
+Hashing:
+    4: 0.3619
+    2: 0.4792
+    10: 0.4
+    1: 0.08
+    3: 0.88
+    5: 0.9
+    6: 0.8
+    7: 0.97
+    8: 0.01
+    9: 0.67
+    12: 0.3
+    14: 0.48
+    15: 0.15
+    17: 0.33
+    18: 0.08
+    19: 0.57
+    21: 0.02
+    24: 0.21
 TODO:
     0. Can not connect to CAEN computer, connection refused
     1. Set up simple client server communication with chat log. Need ClientID, clientSeqNum, and message
