@@ -43,7 +43,7 @@ class KVworker:
   def delK(self, key):
     key = key[0]
     if key in self.myDict:
-      val = self.myDict.pop(key)
+      val = self.myDict.pop(key) + " deleted"
       # returs original value as val
       debugPrint(['[delK]key deleted:', key])
       return self.genResp(True, val)
