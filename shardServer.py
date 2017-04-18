@@ -72,7 +72,7 @@ class KVworker:
       else:
         response = self.genResp(False, 'Unknown command: '+cmd)
       debugPrint(['[workon] myDict', self.myDict])
-    with open(self.logName) as logFile:
+    with open(self.logName, 'w') as logFile:
       logFile.truncate()
       for key in sorted(self.myDict):
         logFile.write(key + " " + self.myDict[key] + "\n")
