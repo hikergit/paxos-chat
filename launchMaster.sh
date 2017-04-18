@@ -17,6 +17,7 @@ launchScript="launchShard.sh"
 master="shardMaster.py"
 masterConfig="master_config.txt"
 rm -f $masterConfig
+
 echo $HOSTNAME $port >> $masterConfig
 gnome-terminal -e "./$master $port $numShards"
 let port=port+1

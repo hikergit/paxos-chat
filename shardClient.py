@@ -46,7 +46,8 @@ def clientRun():
     except (EOFError, KeyboardInterrupt):
       print 'Program terminated'
       exit()
-
+ 
+    print chat
     parse = chat.split(' ') 
     request = ""
 
@@ -95,8 +96,8 @@ def clientRun():
         header += buf
         buf = s.recv(1)
 
-      reply = s.recv(int(header), socket.MSG_WAITALL)
-      print "Reply: ", reply
+      reply = json.loads(s.recv(int(header), socket.MSG_WAITALL))
+      print "Reply: ", reply['V']
     except socket.error:
       print 'Master not reachable, check master status'
       exit()

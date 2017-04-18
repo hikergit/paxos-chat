@@ -40,7 +40,6 @@ class hash_ring(object):
 
   def getShard(self, key):
     val = self._hash(str(key))
-    print 'val', val
     for shard in self.shards:
       if val >= shard['start'] and val <= shard['end']:
         return shard['id']
