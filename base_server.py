@@ -54,6 +54,16 @@ class BaseServer:
     self.myhost = socket.gethostbyname(socket.gethostname())
     self.serverID = serverid
     self.CONFIG = config_file
+    if not os.path.exists(self.logPath):
+      try:
+        os.makedirs(self.logPath)
+      except OSError as exc: # Guard against race condition
+        if exc.errno != errno.EEXIST:
+          raise
+    target = open(self.logFile, 'w')
+    target.truncate()   
+    target.close()
+
     shardNum = self.CONFIG.split('.')[0].split('_')[-1]
     self.logFile = self.logPath + "serverLog_shard_" + shardNum + '_' + str(self.serverID) + ".log"
     self.worker = worker_class(self.logFile)
@@ -511,16 +521,6 @@ class BaseServer:
     if self.imPrimary:
       for n in range(self.numOfServers):
         self.followers[n] = []
-
-    if not os.path.exists(self.logPath):
-      try:
-        os.makedirs(self.logPath)
-      except OSError as exc: # Guard against race condition
-        if exc.errno != errno.EEXIST:
-          raise
-    target = open(self.logFile, 'w')
-    target.truncate()   
-    target.close()
 
     service_thread = Thread(target=self.service, args=())
     service_thread.start()
