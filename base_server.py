@@ -52,9 +52,11 @@ class BaseServer:
   def __init__(self, port, serverid, worker_class = default_worker, config_file = 'config.txt'):
     self.myport = port
     self.myhost = socket.gethostbyname(socket.gethostname())
-    self.worker = worker_class()
     self.serverID = serverid
     self.CONFIG = config_file
+    shardNum = self.CONFIG.split('.')[0].split('_')[-1]
+    self.logFile = self.logPath + "serverLog_shard_" + shardNum + '_' + str(self.serverID) + ".log"
+    self.worker = worker_class(self.logFile)
 
 
   def debugPrint(self, errmsg):
@@ -510,8 +512,6 @@ class BaseServer:
       for n in range(self.numOfServers):
         self.followers[n] = []
 
-    shardNum = self.CONFIG.split('.')[0].split('_')[-1]
-    self.logFile = self.logPath + "serverLog_shard_" + shardNum + '_' + str(self.serverID) + ".log"
     if not os.path.exists(self.logPath):
       try:
         os.makedirs(self.logPath)
