@@ -7,8 +7,9 @@ from debugPrint import debugPrint
 
 class KVworker:
   myDict = {}
+  logName = ""
 
-  def __init__(self):
+  def __init__(self, logName):
     self.funcDict = {'G':self.getK, 
                       'P':self.putKV, 
                       'D':self.delK, 
@@ -16,6 +17,7 @@ class KVworker:
     self.successPrefix = 'S|'
     self.errorPrefix = 'E|'
     self.debugF = True
+    self.logName = logName[:-3]+"dict"
     
   def genResp(self, success, value = ''):
     if success:
@@ -70,6 +72,10 @@ class KVworker:
       else:
         response = self.genResp(False, 'Unknown command: '+cmd)
       debugPrint(['[workon] myDict', self.myDict])
+    with open(self.logName) as logFile:
+      logFile.truncate()
+      for key in sorted(self.myDict):
+        logFile.write(key + " " + self.myDict[key] + "\n")
     return response
 
 def startKVServer():
