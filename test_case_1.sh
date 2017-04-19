@@ -6,7 +6,6 @@ master="launchMaster.sh"
 input="test1_input.txt"   # Changed every test case
 client="shardClient.py"
 dictcheck="dict_check.py"
-output="test1_output.txt" # Changed every test case 
 
 shards=1
 replicas=3
@@ -18,4 +17,4 @@ sleep 0.5
 ./$client 0 < $input
 
 #Checks all shards dictionaries aggregated together against ground truth dictionary
-python $dictcheck $shards $replicas $output
+python $dictcheck $shards $replicas

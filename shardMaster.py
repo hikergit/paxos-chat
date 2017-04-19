@@ -215,14 +215,9 @@ class ShardMaster:
     self.clientSend(client_id, json.dumps(client_msg))
 
   def receive(self):
-    '''
-    keep accepting connection
-    if it's from client
-      if I'm primary 
-        service command
-      if I'm not the primary
-        start view_change
-    '''
+    self.truth = {} 
+    self.truth_file = "truth.txt"
+
     try:
       host = socket.gethostbyname(socket.gethostname())
       print 'Starting master on host, port', host, self.port
@@ -246,6 +241,7 @@ class ShardMaster:
         debugPrint([request])
 
         self.clients[request['CLIENTID']] = conn
+        print "Received ", request
        
        #If addShard command, stop and perform add
         if request['COMMAND'] == 'A':
@@ -257,11 +253,24 @@ class ShardMaster:
           debugPrint(["[receive]Key maps to shard", shard])
           self.message_queues[shard].put(request)
 
+        if request['COMMAND'] == 'P':
+          self.truth[request['KEY']] = request['VAL']
+          self.writeTruth()
+        if request['COMMAND'] == 'D':
+          self.truth.pop(request['KEY'], None)
+          self.writeTruth()
+
     except KeyboardInterrupt:
       print "Receiving stopped normally..."
       print sys.exc_info()[0]
     finally:
       s.close()
+
+  def writeTruth(self):
+    with open(self.truth_file, 'w') as out:
+      out.truncate()
+      for key in sorted(self.truth.keys()):
+        out.write(str(key) + " " + str(self.truth[key]) + "\n")
 
   def start(self):
 

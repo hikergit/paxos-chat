@@ -4,7 +4,6 @@ import sys
 #Args. 
 #1. Number of shards
 #2. Number of replicas 
-#3. Groundtruth file
 
 shards = int(sys.argv[1])
 replicas = int(sys.argv[2])
@@ -27,7 +26,7 @@ for name in primes:
     lines.append(line)
 
 truth = []
-outfile = open(sys.argv[3], 'r')
+outfile = open('truth.txt', 'r')
 for line in outfile:
   if line != "": 
     truth.append(line)
@@ -40,7 +39,4 @@ else:
   print 'Dictionaries do not match'
   print lines
   print truth
-
-
- 
 
