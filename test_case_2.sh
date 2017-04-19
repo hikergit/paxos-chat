@@ -1,23 +1,18 @@
 #!/bin/bash
 
-#Test Case 3. Testing large batch with add shard called in the middle
+#Test Case 2. Testing large batch
 
 master="launchMaster.sh"
-input="test3_input.txt"   # Changed every test case
+input="test2_input.txt"   # Changed every test case
 client="shardClient.py"
 dictcheck="dict_check.py"
-output="test3_output.txt" # Changed every test case 
+output="test2_output.txt" # Changed every test case 
 
-shards=2
+shards=3
 replicas=3
 port=3000
 
 ./$master $shards $replicas $port
-
-let port=3007
-shard="launchShard.sh"
-./$shard $replicas $port $shards
-let shards=shards+1
 
 sleep 0.5
 ./$client 0 < $input

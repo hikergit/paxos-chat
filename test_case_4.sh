@@ -1,21 +1,29 @@
 #!/bin/bash
 
-#Test Case 3. Testing large batch with add shard called in the middle
+#Test Case 4. Testing multiple add shards
 
 master="launchMaster.sh"
-input="test3_input.txt"   # Changed every test case
+input="test4_input.txt"   # Changed every test case
 client="shardClient.py"
 dictcheck="dict_check.py"
-output="test3_output.txt" # Changed every test case 
+output="test4_output.txt" # Changed every test case 
 
-shards=2
+shards=1
 replicas=3
 port=3000
 
 ./$master $shards $replicas $port
 
-let port=3007
 shard="launchShard.sh"
+let port=4000
+./$shard $replicas $port $shards
+let shards=shards+1
+
+let port=5000
+./$shard $replicas $port $shards
+let shards=shards+1
+
+let port=6000
 ./$shard $replicas $port $shards
 let shards=shards+1
 
