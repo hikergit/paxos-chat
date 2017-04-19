@@ -14,10 +14,8 @@ port=3000
 
 ./$master $shards $replicas $port
 
-sleep 1
-
+sleep 0.5
 ./$client 0 < $input
-
 
 #Checks all shards dictionaries aggregated together against ground truth dictionary
 python $dictcheck $shards $replicas $output
