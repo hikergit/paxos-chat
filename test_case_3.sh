@@ -14,7 +14,7 @@ port=3000
 
 ./$master $shards $replicas $port
 
-let port=3007
+let port=4000
 shard="launchShard.sh"
 ./$shard $replicas $port $shards
 let shards=shards+1

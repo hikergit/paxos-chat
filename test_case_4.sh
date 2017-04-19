@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#Test Case 4. Testing multiple add shards
+#Test Case 4. Testing multiple add shards. Each shard should have 1 key at end
 
 master="launchMaster.sh"
 input="test4_input.txt"   # Changed every test case
