@@ -22,7 +22,6 @@ fi
 numShards="$1"
 m="$2"
 startport="$3"
-rm -f *config*
 
 if [ -z "$4" ]; then skip=-1; else skip="$4"; fi
 launchScript="maclaunchShard.sh"
