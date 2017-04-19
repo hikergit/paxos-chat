@@ -8,20 +8,12 @@
 
 numShards="$1"
 m="$2"
-port="$3"
+startport="$3"
 
 if [ -z "$4" ]; then skip=-1; else skip="$4"; fi
 launchScript="launchShard.sh"
 
-#Start Master
-master="shardMaster.py"
-masterConfig="master_config.txt"
-rm -f $masterConfig
-
-echo $HOSTNAME $port >> $masterConfig
-gnome-terminal -e "./$master $port $numShards"
-let port=port+1
-
+let port=$startport+1
 # Bring up the shards
 shard=0
 while [ $shard -lt $numShards ]; 
@@ -32,4 +24,10 @@ do
 
 done
 
+#Start Master
+master="shardMaster.py"
+masterConfig="master_config.txt"
+rm -f $masterConfig
 
+echo $HOSTNAME $startport >> $masterConfig
+gnome-terminal -e "./$master $startport $numShards"
